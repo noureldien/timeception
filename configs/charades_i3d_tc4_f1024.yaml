@@ -1,0 +1,35 @@
+#!/usr/bin/env vim
+
+NUM_GPUS: 1 # how many gups to use
+LOG_PERIOD: 10 # log period
+DATASET_NAME: 'charades' # name of dataset
+
+MODEL:
+  CLASSIFICATION_TYPE: 'ml' # either multi-label 'ml' or single-label 'sl'
+  N_CLASSES: 157 # how many classes as output
+  N_CHAMNNEL_GROUPS: 8 # how many channel groups
+  N_TC_LAYERS: 4 # number of timeception layers
+  N_TC_TIMESTEPS: 128 # how mant timesteps expected as input to the timeception layers
+  N_INPUT_TIMESTEPS: 1024 # how many timesteps (i.e. frames) expected as an input to the backbone CNN
+  NAME: 'charades_timeception' # name suffex for the model to be trained
+  BACKBONE_CNN: 'i3d_pytorch_charades_rgb'# which backbone cnn is used
+  BACKBONE_FEATURE: 'mixed_5c' # type of feature output from backbone cnn
+  MULTISCALE_TYPE: 'dl' # use multi-scale by dilation rate "dl" or multi-scale by kernel-size "ks"
+
+TRAIN:
+  BATCH_SIZE: 16 # batch size for training
+  N_EPOCHS: 500 # how many training epochs
+  SCHEME: 'tco' # either 'ete' (end-to-end) or 'tco' ('timeception-only')
+  N_WORKERS: 10 # how many parallel workers in the data generator
+
+TEST:
+  BATCH_SIZE: 32
+  N_SAMPLES: 10
+
+SOLVER:
+  NAME: 'adam'
+  LR: 0.01
+  ADAM_EPSILON: 0.0001
+  SGD_WEIGHT_DECAY: 0.0001
+  SGD_MOMENTUM: 0.9
+  SGD_NESTEROV: True
