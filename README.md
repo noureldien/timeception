@@ -60,9 +60,6 @@ It takes the input tensor, feedforward it to the `timeception` layers and return
 
 ```python
 import tensorflow as tf
-from keras import Model
-from keras.layers import Input, Dense
-from nets.keras_layers import MaxLayer
 from nets import timeception
 
 # define input tensor
