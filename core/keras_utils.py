@@ -164,23 +164,20 @@ class SaveCallback(Callback):
     def on_epoch_end(self, idx_epoch, logs=None):
         """
         Save the model.
-        :param idx_epoch:
-        :param logs:
-        :return:
         """
 
         epoch_num = idx_epoch + 1
+        self.__save(epoch_num)
+
+    def __save(self, epoch_num):
         model_root_path = self.model_root_path
-        model_path = '%s/%03d.model' % (model_root_path, epoch_num)
-        model_json_path = '%s/%03d.json' % (model_root_path, epoch_num)
-        model_weight_path = '%s/%03d.pkl' % (model_root_path, epoch_num)
-
-        # save model definition, json and weights
-        self.model.save(model_path)
-        self.__save(model_json_path, model_weight_path)
-
-    def __save(self, model_json_path, model_weight_path):
         model = self.model
+
+        # hfpy accept only strings as a path
+        model_json_path = str('%s/%03d.json' % (model_root_path, epoch_num))
+        model_weight_path = str('%s/%03d.pkl' % (model_root_path, epoch_num))
+
+        # save model definition as json, and save model weights
         model.save_weights(model_weight_path, overwrite=True)
         model_json = model.to_json()
         with open(model_json_path, 'w') as f:

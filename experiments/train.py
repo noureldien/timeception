@@ -219,6 +219,7 @@ def __main():
     """
 
     default_config_file = 'charades_i3d_tc4_f1024.yaml'
+    default_config_file = 'charades_i3d_tc2_f256.yaml'
 
     # Parse the arguments
     parser = OptionParser()

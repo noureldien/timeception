@@ -161,13 +161,14 @@ class Timeception(Model):
     Timeception is defined as a keras model.
     """
 
-    def __init__(self, n_channels_in, n_layers=4, n_groups=8, is_dilated=True, name=None):
+    def __init__(self, n_channels_in, n_layers=4, n_groups=8, is_dilated=True, **kwargs):
 
-        super(Timeception, self).__init__(name=name)
+        super(Timeception, self).__init__(**kwargs)
 
         expansion_factor = 1.25
         self.expansion_factor = expansion_factor
 
+        self.n_channels_in = n_channels_in
         self.n_layers = n_layers
         self.n_groups = n_groups
         self.is_dilated = is_dilated
@@ -394,8 +395,8 @@ class Timeception(Model):
         """
 
         # branch 1: dimension reduction only and no temporal conv
-        t_0 = getattr(self, 'conv_b0_g%d_tc%d' % (group_num, layer_num))(tensor)
-        t_0 = getattr(self, 'bn_b0_g%d_tc%d' % (group_num, layer_num))(t_0)
+        t_0 = getattr(self, 'conv_b1_g%d_tc%d' % (group_num, layer_num))(tensor)
+        t_0 = getattr(self, 'bn_b1_g%d_tc%d' % (group_num, layer_num))(t_0)
 
         # branch 2: dimension reduction followed by depth-wise temp conv (kernel-size 3)
         t_2 = getattr(self, 'conv_b2_g%d_tc%d' % (group_num, layer_num))(tensor)
@@ -430,5 +431,13 @@ class Timeception(Model):
         n_channels_out = int(n_channels_out)
 
         return n_channels_per_branch, n_channels_out
+
+    def get_config(self):
+        """
+        For rebuilding models on load time.
+        """
+        config = {'n_channels_in': self.n_channels_in, 'n_layers': self.n_layers, 'n_groups': self.n_groups, 'is_dilated': self.is_dilated}
+        base_config = super(Timeception, self).get_config()
+        return dict(list(base_config.items()) + list(config.items()))
 
 # endregion
