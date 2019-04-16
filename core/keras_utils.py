@@ -177,5 +177,13 @@ class SaveCallback(Callback):
 
         # save model definition, json and weights
         self.model.save(model_path)
-        save_model(self.model, model_json_path, model_weight_path)
+        self.__save(model_json_path, model_weight_path)
+
+    def __save(self, model_json_path, model_weight_path):
+        model = self.model
+        model.save_weights(model_weight_path, overwrite=True)
+        model_json = model.to_json()
+        with open(model_json_path, 'w') as f:
+            json.dump(model_json, f)
+
 # endregion

@@ -214,8 +214,7 @@ class DataGeneratorCharades(keras.utils.Sequence):
 
         # loop of feature pathes and load them
         for idx, p in enumerate(feats_path):
-            # x[idx] = utils.pkl_load(p)
-            pass
+            x[idx] = utils.pkl_load(p)
 
         return x, y
 
@@ -236,7 +235,6 @@ class DataGeneratorCharades(keras.utils.Sequence):
         self.y = self.y[idx]
 
 # endregion
-
 
 # region Costants
 

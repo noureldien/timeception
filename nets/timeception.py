@@ -44,7 +44,7 @@ from nets.keras_layers import MaxLayer, AverageLayer, SumLayer, ExpandDimsLayer,
 
 # region Timeception as Layers
 
-def timeception_layers(tensor, n_layers, n_groups, is_dilated):
+def timeception_layers(tensor, n_layers=4, n_groups=8, is_dilated=True):
     input_shape = K.int_shape(tensor)
     assert len(input_shape) == 5
 
@@ -62,7 +62,7 @@ def timeception_layers(tensor, n_layers, n_groups, is_dilated):
         tensor = __grouped_convolutions(tensor, n_groups, n_channels_per_branch, is_dilated, layer_num)
 
         # downsample over time
-        tensor = MaxPooling3D(pool_size=(2, 1, 1))(tensor)
+        tensor = MaxPooling3D(pool_size=(2, 1, 1), name='maxpool_tc%d' % (layer_num))(tensor)
         n_channels_in = n_channels_out
 
     return tensor
@@ -79,7 +79,8 @@ def __grouped_convolutions(tensor_input, n_groups, n_channels_per_branch, is_dil
     assert n_channels_out % n_groups == 0
 
     # slice maps into groups
-    tensors = Lambda(lambda x: [x[:, :, :, :, i * n_channels_per_group_in:(i + 1) * n_channels_per_group_in] for i in range(n_groups)])(tensor_input)
+    layer_name = 'slice_groups_tc%d' % (layer_num)
+    tensors = Lambda(lambda x: [x[:, :, :, :, i * n_channels_per_group_in:(i + 1) * n_channels_per_group_in] for i in range(n_groups)], name=layer_name)(tensor_input)
 
     # type of multi-scale kernels to use: either multi_kernel_sizes or multi_dilation_rates
     if is_dilated:
@@ -99,13 +100,13 @@ def __grouped_convolutions(tensor_input, n_groups, n_channels_per_branch, is_dil
         t_outputs.append(tensor)
 
     # concatenate channels of groups
-    tensor = Concatenate(axis=4)(t_outputs)
+    tensor = Concatenate(axis=4, name='concat_tc%d' % (layer_num))(t_outputs)
 
     # activation
-    tensor = Activation('relu')(tensor)
+    tensor = Activation('relu', name='relu_tc%d' % (layer_num))(tensor)
 
     # shuffle channels
-    tensor = ChannelShuffleLayer(n_groups)(tensor)
+    tensor = ChannelShuffleLayer(n_groups, name='shuffle_tc%d' % (layer_num))(tensor)
 
     return tensor
 
@@ -115,8 +116,8 @@ def __temporal_convolutional_block(tensor, n_channels_per_branch, kernel_sizes, 
     """
 
     # branch 1: dimension reduction only and no temporal conv
-    t_0 = Conv3D(n_channels_per_branch, kernel_size=(1, 1, 1), padding='same', name='conv_b0_g%d_tc%d' % (group_num, layer_num))(tensor)
-    t_0 = BatchNormalization(name='bn_b0_g%d_tc%d' % (group_num, layer_num))(t_0)
+    t_0 = Conv3D(n_channels_per_branch, kernel_size=(1, 1, 1), padding='same', name='conv_b1_g%d_tc%d' % (group_num, layer_num))(tensor)
+    t_0 = BatchNormalization(name='bn_b1_g%d_tc%d' % (group_num, layer_num))(t_0)
 
     # branch 2: dimension reduction followed by depth-wise temp conv (kernel-size 3)
     t_2 = Conv3D(n_channels_per_branch, kernel_size=(1, 1, 1), padding='same', name='conv_b2_g%d_tc%d' % (group_num, layer_num))(tensor)
@@ -274,10 +275,10 @@ class Timeception(Model):
         """
 
         # branch 1: dimension reduction only and no temporal conv
-        layer_name = 'conv_b0_g%d_tc%d' % (group_num, layer_num)
+        layer_name = 'conv_b1_g%d_tc%d' % (group_num, layer_num)
         layer = Conv3D(n_channels_per_branch, kernel_size=(1, 1, 1), padding='same', name=layer_name)
         setattr(self, layer_name, layer)
-        layer_name = 'bn_b0_g%d_tc%d' % (group_num, layer_num)
+        layer_name = 'bn_b1_g%d_tc%d' % (group_num, layer_num)
         layer = BatchNormalization(name=layer_name)
         setattr(self, layer_name, layer)
 

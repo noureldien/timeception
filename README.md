@@ -16,7 +16,8 @@ Please consider citing this work using this BibTeX entry
 ```
 
 ### How to Use?
-Using keras, we can define `timeception` as a sub-model.
+###### Keras
+Using `keras`, we can define `timeception` as a sub-model.
 Then we use it along with another model definition.
 For example, here we define 4 `timeception` layers followed by a `dense` layer for classification.
 
@@ -49,6 +50,26 @@ Layer (type)  Output Shape              Param #
 (Dense)       (None, 100)               248100    
 ================================================
 Total params: 1,742,404
+```
+
+###### Tensorflow
+Using `tensorflow`, we can define `timeception` as a a list of nodes in the computational graph.
+Then we use it along with another model definition.
+For example, here a functions defines 4 `timeception` layers.
+It takes the input tensor, feedforward it to the `timeception` layers and return the output tensor `output`.
+
+```python
+import tensorflow as tf
+from keras import Model
+from keras.layers import Input, Dense
+from nets.keras_layers import MaxLayer
+from nets import timeception
+
+# define input tensor
+input = tf.placeholder(shape=(batch_size, 128, 7, 7, 1024))
+
+# feedforward the input to the timeception layers
+tensor = timeception.timeception_layers(input, n_layers=4)
 ```
 
 ### Installation
