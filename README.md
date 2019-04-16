@@ -93,7 +93,7 @@ from nets import timeception_pytorch
 input = T.tensor(np.zeros((batch_size, 1024, 128, 7, 7)))
 
 # define 4 layers of timeception
-timeception_module = timeception_pytorch.Timeception(input.size(), 4)
+timeception_module = timeception_pytorch.Timeception(input.size(), n_layers=4)
 
 # feedforward the input to the timeception layers 
 tensor = timeception_module(input)
