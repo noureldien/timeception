@@ -21,7 +21,7 @@
 ########################################################################
 
 """
-Definitio of Timeception as either keras layers or keras model.
+Definitio of Timeception as pytorch model.
 """
 
 from __future__ import absolute_import
@@ -31,128 +31,16 @@ from __future__ import unicode_literals
 
 import logging
 
-import copy
-import tensorflow as tf
+import torch
+import torchvision
+import torchviz
+import torchsummary
 
-import keras.backend as K
-from keras import layers as layer_module
-from keras.models import Model
 from keras.layers import Concatenate, BatchNormalization, Activation, Lambda, MaxPooling3D, Conv3D
 
 from nets.layers_keras import ReshapeLayer, TransposeLayer, DepthwiseConv1DLayer, DepthwiseConv1DLayer
 from nets.layers_keras import MaxLayer, AverageLayer, SumLayer, ExpandDimsLayer, SqueezeLayer, ChannelShuffleLayer
 
-# region Timeception as Layers
-
-def timeception_layers(tensor, n_layers=4, n_groups=8, is_dilated=True):
-    input_shape = K.int_shape(tensor)
-    assert len(input_shape) == 5
-
-    expansion_factor = 1.25
-    _, n_timesteps, side_dim, side_dim, n_channels_in = input_shape
-
-    # how many layers of timeception
-    for i in range(n_layers):
-        layer_num = i + 1
-
-        # get details about grouping
-        n_channels_per_branch, n_channels_out = __get_n_channels_per_branch(n_groups, expansion_factor, n_channels_in)
-
-        # temporal conv per group
-        tensor = __grouped_convolutions(tensor, n_groups, n_channels_per_branch, is_dilated, layer_num)
-
-        # downsample over time
-        tensor = MaxPooling3D(pool_size=(2, 1, 1), name='maxpool_tc%d' % (layer_num))(tensor)
-        n_channels_in = n_channels_out
-
-    return tensor
-
-def __grouped_convolutions(tensor_input, n_groups, n_channels_per_branch, is_dilated, layer_num):
-    _, n_timesteps, side_dim1, side_dim2, n_channels_in = tensor_input.get_shape().as_list()
-    assert n_channels_in % n_groups == 0
-    n_branches = 5
-
-    n_channels_per_group_in = int(n_channels_in / n_groups)
-    n_channels_out = int(n_groups * n_branches * n_channels_per_branch)
-    n_channels_per_group_out = int(n_channels_out / n_groups)
-
-    assert n_channels_out % n_groups == 0
-
-    # slice maps into groups
-    layer_name = 'slice_groups_tc%d' % (layer_num)
-    tensors = Lambda(lambda x: [x[:, :, :, :, i * n_channels_per_group_in:(i + 1) * n_channels_per_group_in] for i in range(n_groups)], name=layer_name)(tensor_input)
-
-    # type of multi-scale kernels to use: either multi_kernel_sizes or multi_dilation_rates
-    if is_dilated:
-        kernel_sizes = (3, 3, 3)
-        dilation_rates = (1, 2, 3)
-    else:
-        kernel_sizes = (3, 5, 7)
-        dilation_rates = (1, 1, 1)
-
-    # loop on groups
-    t_outputs = []
-    for idx_group in range(n_groups):
-        group_num = idx_group + 1
-
-        tensor = tensors[idx_group]
-        tensor = __temporal_convolutional_block(tensor, n_channels_per_branch, kernel_sizes, dilation_rates, layer_num, group_num)
-        t_outputs.append(tensor)
-
-    # concatenate channels of groups
-    tensor = Concatenate(axis=4, name='concat_tc%d' % (layer_num))(t_outputs)
-
-    # activation
-    tensor = Activation('relu', name='relu_tc%d' % (layer_num))(tensor)
-
-    # shuffle channels
-    tensor = ChannelShuffleLayer(n_groups, name='shuffle_tc%d' % (layer_num))(tensor)
-
-    return tensor
-
-def __temporal_convolutional_block(tensor, n_channels_per_branch, kernel_sizes, dilation_rates, layer_num, group_num):
-    """
-    Define 5 branches of convolutions that operate of channels of each group.
-    """
-
-    # branch 1: dimension reduction only and no temporal conv
-    t_0 = Conv3D(n_channels_per_branch, kernel_size=(1, 1, 1), padding='same', name='conv_b1_g%d_tc%d' % (group_num, layer_num))(tensor)
-    t_0 = BatchNormalization(name='bn_b1_g%d_tc%d' % (group_num, layer_num))(t_0)
-
-    # branch 2: dimension reduction followed by depth-wise temp conv (kernel-size 3)
-    t_2 = Conv3D(n_channels_per_branch, kernel_size=(1, 1, 1), padding='same', name='conv_b2_g%d_tc%d' % (group_num, layer_num))(tensor)
-    t_2 = DepthwiseConv1DLayer(kernel_sizes[0], dilation_rates[0], padding='same', name='convdw_b2_g%d_tc%d' % (group_num, layer_num))(t_2)
-    t_2 = BatchNormalization(name='bn_b2_g%d_tc%d' % (group_num, layer_num))(t_2)
-
-    # branch 3: dimension reduction followed by depth-wise temp conv (kernel-size 5)
-    t_3 = Conv3D(n_channels_per_branch, kernel_size=(1, 1, 1), padding='same', name='conv_b3_g%d_tc%d' % (group_num, layer_num))(tensor)
-    t_3 = DepthwiseConv1DLayer(kernel_sizes[1], dilation_rates[1], padding='same', name='convdw_b3_g%d_tc%d' % (group_num, layer_num))(t_3)
-    t_3 = BatchNormalization(name='bn_b3_g%d_tc%d' % (group_num, layer_num))(t_3)
-
-    # branch 4: dimension reduction followed by depth-wise temp conv (kernel-size 7)
-    t_4 = Conv3D(n_channels_per_branch, kernel_size=(1, 1, 1), padding='same', name='conv_b4_g%d_tc%d' % (group_num, layer_num))(tensor)
-    t_4 = DepthwiseConv1DLayer(kernel_sizes[2], dilation_rates[2], padding='same', name='convdw_b4_g%d_tc%d' % (group_num, layer_num))(t_4)
-    t_4 = BatchNormalization(name='bn_b4_g%d_tc%d' % (group_num, layer_num))(t_4)
-
-    # branch 5: dimension reduction followed by temporal max pooling
-    t_1 = Conv3D(n_channels_per_branch, kernel_size=(1, 1, 1), padding='same', name='conv_b5_g%d_tc%d' % (group_num, layer_num))(tensor)
-    t_1 = MaxPooling3D(pool_size=(2, 1, 1), strides=(1, 1, 1), padding='same', name='maxpool_b5_g%d_tc%d' % (group_num, layer_num))(t_1)
-    t_1 = BatchNormalization(name='bn_b5_g%d_tc%d' % (group_num, layer_num))(t_1)
-
-    # concatenate channels of branches
-    tensor = Concatenate(axis=4, name='concat_g%d_tc%d' % (group_num, layer_num))([t_0, t_2, t_3, t_4, t_1])
-
-    return tensor
-
-def __get_n_channels_per_branch(n_groups, expansion_factor, n_channels_in):
-    n_branches = 5
-    n_channels_per_branch = int(n_channels_in * expansion_factor / float(n_branches * n_groups))
-    n_channels_per_branch = int(n_channels_per_branch)
-    n_channels_out = int(n_channels_per_branch * n_groups * n_branches)
-    n_channels_out = int(n_channels_out)
-    return n_channels_per_branch, n_channels_out
-
-# endregion
 
 # region Timeception as Model
 

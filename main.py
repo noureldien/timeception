@@ -25,13 +25,19 @@ Main file of the project.
 """
 
 def __main():
-    from experiments import train, test
+    from experiments import train_keras, test_keras, train_pytorch, test_pytorch
 
-    # to train Timeception
-    train.__main()
+    # to train Timeception using keras
+    train_keras.__main()
 
-    # to test Timeception
-    # test.__main()
+    # or using pytorch
+    # train_pytorch.__main()
+
+    # to test Timeception using keras
+    # test_keras.__main()
+
+    # or using pytorch
+    # test_pytorch.__main()
 
 if __name__ == '__main__':
     __main()

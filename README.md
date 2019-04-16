@@ -24,7 +24,7 @@ For example, here we define 4 `timeception` layers followed by a `dense` layer f
 ```python
 from keras import Model
 from keras.layers import Input, Dense
-from nets.keras_layers import MaxLayer
+from nets.layers_keras import MaxLayer
 from nets.timeception import Timeception
 
 # define the timeception layers

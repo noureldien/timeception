@@ -64,9 +64,9 @@ from keras.utils import multi_gpu_utils
 from keras.callbacks import LambdaCallback, Callback
 
 from nets import timeception
-from nets.keras_layers import DepthwiseConvOverTimeLayer, ReshapeLayer, TransposeLayer
-from nets.keras_layers import GroupedDenseLayer, MaxLayer, AverageLayer, SumLayer
-from nets.keras_layers import DepthwiseConv1DLayer, DepthwiseConv1DLayer, DepthwiseConv3DLayer, DepthwiseConv2DLayer
+from nets.layers_keras import DepthwiseConvOverTimeLayer, ReshapeLayer, TransposeLayer
+from nets.layers_keras import GroupedDenseLayer, MaxLayer, AverageLayer, SumLayer
+from nets.layers_keras import DepthwiseConv1DLayer, DepthwiseConv1DLayer, DepthwiseConv3DLayer, DepthwiseConv2DLayer
 from core import utils, keras_utils, image_utils, config_utils, const, config, data_utils
 
 logger = logging.getLogger(__name__)
