@@ -31,16 +31,13 @@ from __future__ import unicode_literals
 
 import logging
 
-import copy
 import tensorflow as tf
-
 import keras.backend as K
-from keras import layers as layer_module
+
 from keras.models import Model
 from keras.layers import Concatenate, BatchNormalization, Activation, Lambda, MaxPooling3D, Conv3D
 
-from nets.layers_keras import ReshapeLayer, TransposeLayer, DepthwiseConv1DLayer, DepthwiseConv1DLayer
-from nets.layers_keras import MaxLayer, AverageLayer, SumLayer, ExpandDimsLayer, SqueezeLayer, ChannelShuffleLayer
+from nets.layers_keras import DepthwiseConv1DLayer, ChannelShuffleLayer
 
 # region Timeception as Layers
 
@@ -116,8 +113,8 @@ def __temporal_convolutional_block(tensor, n_channels_per_branch, kernel_sizes, 
     """
 
     # branch 1: dimension reduction only and no temporal conv
-    t_0 = Conv3D(n_channels_per_branch, kernel_size=(1, 1, 1), padding='same', name='conv_b1_g%d_tc%d' % (group_num, layer_num))(tensor)
-    t_0 = BatchNormalization(name='bn_b1_g%d_tc%d' % (group_num, layer_num))(t_0)
+    t_1 = Conv3D(n_channels_per_branch, kernel_size=(1, 1, 1), padding='same', name='conv_b1_g%d_tc%d' % (group_num, layer_num))(tensor)
+    t_1 = BatchNormalization(name='bn_b1_g%d_tc%d' % (group_num, layer_num))(t_1)
 
     # branch 2: dimension reduction followed by depth-wise temp conv (kernel-size 3)
     t_2 = Conv3D(n_channels_per_branch, kernel_size=(1, 1, 1), padding='same', name='conv_b2_g%d_tc%d' % (group_num, layer_num))(tensor)
@@ -135,12 +132,12 @@ def __temporal_convolutional_block(tensor, n_channels_per_branch, kernel_sizes, 
     t_4 = BatchNormalization(name='bn_b4_g%d_tc%d' % (group_num, layer_num))(t_4)
 
     # branch 5: dimension reduction followed by temporal max pooling
-    t_1 = Conv3D(n_channels_per_branch, kernel_size=(1, 1, 1), padding='same', name='conv_b5_g%d_tc%d' % (group_num, layer_num))(tensor)
-    t_1 = MaxPooling3D(pool_size=(2, 1, 1), strides=(1, 1, 1), padding='same', name='maxpool_b5_g%d_tc%d' % (group_num, layer_num))(t_1)
-    t_1 = BatchNormalization(name='bn_b5_g%d_tc%d' % (group_num, layer_num))(t_1)
+    t_5 = Conv3D(n_channels_per_branch, kernel_size=(1, 1, 1), padding='same', name='conv_b5_g%d_tc%d' % (group_num, layer_num))(tensor)
+    t_5 = MaxPooling3D(pool_size=(2, 1, 1), strides=(1, 1, 1), padding='same', name='maxpool_b5_g%d_tc%d' % (group_num, layer_num))(t_5)
+    t_5 = BatchNormalization(name='bn_b5_g%d_tc%d' % (group_num, layer_num))(t_5)
 
     # concatenate channels of branches
-    tensor = Concatenate(axis=4, name='concat_g%d_tc%d' % (group_num, layer_num))([t_0, t_2, t_3, t_4, t_1])
+    tensor = Concatenate(axis=4, name='concat_g%d_tc%d' % (group_num, layer_num))([t_1, t_2, t_3, t_4, t_5])
 
     return tensor
 
@@ -338,9 +335,6 @@ class Timeception(Model):
 
         _, n_timesteps, side_dim, side_dim, n_channels_in = input_shape
 
-        # collapse regions in one dim
-        tensor = ReshapeLayer((n_timesteps, side_dim * side_dim, 1, n_channels_in))(tensor)
-
         # how many layers of timeception
         for i in range(n_layers):
             layer_num = i + 1
@@ -349,7 +343,7 @@ class Timeception(Model):
             n_channels_per_branch, n_channels_out = self.__get_n_channels_per_branch(n_groups, expansion_factor, n_channels_in)
 
             # temporal conv per group
-            tensor = self.__call_grouped_convolutions(tensor, n_groups, n_channels_per_branch, is_dilated, layer_num)
+            tensor = self.__call_grouped_convolutions(tensor, n_groups, n_channels_per_branch, layer_num)
 
             # downsample over time
             tensor = getattr(self, 'maxpool_tc%d' % (layer_num))(tensor)
@@ -357,20 +351,10 @@ class Timeception(Model):
 
         return tensor
 
-    def __call_grouped_convolutions(self, tensor_input, n_groups, n_channels_per_branch, is_dilated, layer_num):
-        _, n_timesteps, side_dim1, side_dim2, n_channels_in = tensor_input.get_shape().as_list()
-        assert n_channels_in % n_groups == 0
-        n_branches = 5
-
-        n_channels_per_group_in = int(n_channels_in / n_groups)
-        n_channels_out = int(n_groups * n_branches * n_channels_per_branch)
-        n_channels_per_group_out = int(n_channels_out / n_groups)
-
-        assert n_channels_in % n_groups == 0
-        assert n_channels_out % n_groups == 0
+    def __call_grouped_convolutions(self, tensor_input, n_groups, n_channels_per_branch, layer_num):
 
         # slice maps into groups
-        tensors = Lambda(lambda x: [x[:, :, :, :, i * n_channels_per_group_in:(i + 1) * n_channels_per_group_in] for i in range(n_groups)])(tensor_input)
+        tensors = getattr(self, 'slice_groups_tc%d' % (layer_num))(tensor_input)
 
         # loop on groups
         t_outputs = []
@@ -395,8 +379,8 @@ class Timeception(Model):
         """
 
         # branch 1: dimension reduction only and no temporal conv
-        t_0 = getattr(self, 'conv_b1_g%d_tc%d' % (group_num, layer_num))(tensor)
-        t_0 = getattr(self, 'bn_b1_g%d_tc%d' % (group_num, layer_num))(t_0)
+        t_1 = getattr(self, 'conv_b1_g%d_tc%d' % (group_num, layer_num))(tensor)
+        t_1 = getattr(self, 'bn_b1_g%d_tc%d' % (group_num, layer_num))(t_1)
 
         # branch 2: dimension reduction followed by depth-wise temp conv (kernel-size 3)
         t_2 = getattr(self, 'conv_b2_g%d_tc%d' % (group_num, layer_num))(tensor)
@@ -414,12 +398,12 @@ class Timeception(Model):
         t_4 = getattr(self, 'bn_b4_g%d_tc%d' % (group_num, layer_num))(t_4)
 
         # branch 5: dimension reduction followed by temporal max pooling
-        t_1 = getattr(self, 'conv_b5_g%d_tc%d' % (group_num, layer_num))(tensor)
-        t_1 = getattr(self, 'maxpool_b5_g%d_tc%d' % (group_num, layer_num))(t_1)
-        t_1 = getattr(self, 'bn_b5_g%d_tc%d' % (group_num, layer_num))(t_1)
+        t_5 = getattr(self, 'conv_b5_g%d_tc%d' % (group_num, layer_num))(tensor)
+        t_5 = getattr(self, 'maxpool_b5_g%d_tc%d' % (group_num, layer_num))(t_5)
+        t_5 = getattr(self, 'bn_b5_g%d_tc%d' % (group_num, layer_num))(t_5)
 
         # concatenate channels of branches
-        tensor = getattr(self, 'concat_g%d_tc%d' % (group_num, layer_num))([t_0, t_2, t_3, t_4, t_1])
+        tensor = getattr(self, 'concat_g%d_tc%d' % (group_num, layer_num))([t_1, t_2, t_3, t_4, t_5])
 
         return tensor
 

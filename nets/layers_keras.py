@@ -1,17 +1,42 @@
-import math
-import numpy as np
+#!/usr/bin/env python
+# -*- coding: UTF-8 -*-
 
-from keras.engine.topology import Layer
+########################################################################
+# GNU General Public License v3.0
+# GNU GPLv3
+# Copyright (c) 2019, Noureldien Hussein
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+########################################################################
+
+"""
+Layers for keras.
+"""
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
+import logging
 from keras import backend as K
-from keras.engine.topology import Layer, InputSpec
-from keras.initializers import RandomUniform, Constant
+from keras.layers import Layer
 
 import tensorflow as tf
 import tensorflow.contrib.layers as contrib_layers
-from tensorflow.contrib.distributions import RelaxedOneHotCategorical
-from tensorflow import initializers
-from tensorflow import linalg
-from core import utils
+
+logger = logging.getLogger(__name__)
 
 # region Basic Layers
 
@@ -54,7 +79,8 @@ class ReshapeLayer(Layer):
         """
         config = {'new_shape': self.new_shape}
         base_config = super(ReshapeLayer, self).get_config()
-        return dict(list(base_config.items()) + list(config.items()))
+        config = dict(list(base_config.items()) + list(config.items()))
+        return config
 
 class TransposeLayer(Layer):
     def __init__(self, new_perm, **kwargs):
@@ -78,7 +104,8 @@ class TransposeLayer(Layer):
         """
         config = {'new_perm': self.new_perm}
         base_config = super(TransposeLayer, self).get_config()
-        return dict(list(base_config.items()) + list(config.items()))
+        config = dict(list(base_config.items()) + list(config.items()))
+        return config
 
 class ExpandDimsLayer(Layer):
     def __init__(self, axis, **kwargs):
@@ -111,7 +138,8 @@ class ExpandDimsLayer(Layer):
     def get_config(self):
         config = {'axis': self.axis}
         base_config = super(ExpandDimsLayer, self).get_config()
-        return dict(list(base_config.items()) + list(config.items()))
+        config = dict(list(base_config.items()) + list(config.items()))
+        return config
 
 class SqueezeLayer(Layer):
     def __init__(self, axis, **kwargs):
@@ -136,7 +164,8 @@ class SqueezeLayer(Layer):
     def get_config(self):
         config = {'axis': self.axis}
         base_config = super(SqueezeLayer, self).get_config()
-        return dict(list(base_config.items()) + list(config.items()))
+        config = dict(list(base_config.items()) + list(config.items()))
+        return config
 
 class SqueezeAllLayer(Layer):
     def __init__(self, **kwargs):
@@ -163,7 +192,8 @@ class SqueezeAllLayer(Layer):
     def get_config(self):
         config = {}
         base_config = super(SqueezeAllLayer, self).get_config()
-        return dict(list(base_config.items()) + list(config.items()))
+        config = dict(list(base_config.items()) + list(config.items()))
+        return config
 
 class MaxLayer(Layer):
     def __init__(self, axis, is_keep_dim=False, **kwargs):
@@ -199,7 +229,8 @@ class MaxLayer(Layer):
     def get_config(self):
         config = {'axis': self.axis, 'is_keep_dim': self.is_keep_dim}
         base_config = super(MaxLayer, self).get_config()
-        return dict(list(base_config.items()) + list(config.items()))
+        config = dict(list(base_config.items()) + list(config.items()))
+        return config
 
 class SumLayer(Layer):
     def __init__(self, axis, is_keep_dim=False, **kwargs):
@@ -235,7 +266,8 @@ class SumLayer(Layer):
     def get_config(self):
         config = {'axis': self.axis, 'is_keep_dim': self.is_keep_dim}
         base_config = super(SumLayer, self).get_config()
-        return dict(list(base_config.items()) + list(config.items()))
+        config = dict(list(base_config.items()) + list(config.items()))
+        return config
 
 class AverageLayer(Layer):
     def __init__(self, axis, is_keep_dim=False, **kwargs):
@@ -271,11 +303,12 @@ class AverageLayer(Layer):
     def get_config(self):
         config = {'axis': self.axis, 'is_keep_dim': self.is_keep_dim}
         base_config = super(AverageLayer, self).get_config()
-        return dict(list(base_config.items()) + list(config.items()))
+        config = dict(list(base_config.items()) + list(config.items()))
+        return config
 
 # endregion
 
-# region Model Layers
+# region Timeception Layers
 
 class NormalizationLayer(Layer):
     """
@@ -300,7 +333,8 @@ class NormalizationLayer(Layer):
     def get_config(self):
         config = {'axis', self.axis}
         base_config = super(NormalizationLayer, self).get_config()
-        return dict(list(base_config.items()) + list(config.items()))
+        config = dict(list(base_config.items()) + list(config.items()))
+        return config
 
 class DepthwiseConvOverTimeLayer(Layer):
     """
@@ -399,7 +433,8 @@ class DepthwiseConvOverTimeLayer(Layer):
         """
         config = {'channel_multiplier': self.channel_multiplier, 'depthwise_kernel_size': self.depthwise_kernel_size, 'pointwise_kernel_size': self.pointwise_kernel_size}
         base_config = super(DepthwiseConvOverTimeLayer, self).get_config()
-        return dict(list(base_config.items()) + list(config.items()))
+        config = dict(list(base_config.items()) + list(config.items()))
+        return config
 
 class GroupedDenseLayer(Layer):
     """
@@ -473,7 +508,8 @@ class GroupedDenseLayer(Layer):
         """
         config = {'n_units_out': self.n_units_out}
         base_config = super(GroupedDenseLayer, self).get_config()
-        return dict(list(base_config.items()) + list(config.items()))
+        config = dict(list(base_config.items()) + list(config.items()))
+        return config
 
 class DepthwiseDenseLayer(Layer):
     """
@@ -540,7 +576,8 @@ class DepthwiseDenseLayer(Layer):
         """
         config = {'n_units_out': self.n_timesteps_out}
         base_config = super(DepthwiseDenseLayer, self).get_config()
-        return dict(list(base_config.items()) + list(config.items()))
+        config = dict(list(base_config.items()) + list(config.items()))
+        return config
 
 class DepthwiseConv1DLayer(Layer):
     """
@@ -616,7 +653,8 @@ class DepthwiseConv1DLayer(Layer):
         """
         config = {'kernel_size': self.kernel_size, 'dilation_rate': self.dilation_rate, 'padding': self.padding}
         base_config = super(DepthwiseConv1DLayer, self).get_config()
-        return dict(list(base_config.items()) + list(config.items()))
+        config = dict(list(base_config.items()) + list(config.items()))
+        return config
 
 class DepthwiseConv2DLayer(Layer):
     """
@@ -679,7 +717,8 @@ class DepthwiseConv2DLayer(Layer):
         """
         config = {'kernel_size': self.kernel_size, 'padding': self.padding}
         base_config = super(DepthwiseConv2DLayer, self).get_config()
-        return dict(list(base_config.items()) + list(config.items()))
+        config = dict(list(base_config.items()) + list(config.items()))
+        return config
 
 class DepthwiseConv3DLayer(Layer):
     """
@@ -753,7 +792,8 @@ class DepthwiseConv3DLayer(Layer):
         """
         config = {'kernel_size': self.kernel_size, 'padding': self.padding}
         base_config = super(DepthwiseConv3DLayer, self).get_config()
-        return dict(list(base_config.items()) + list(config.items()))
+        config = dict(list(base_config.items()) + list(config.items()))
+        return config
 
     def __cal_side_dim(self, side_dim):
         padding = self.padding
@@ -842,7 +882,8 @@ class GroupedConv3DLayer(Layer):
         """
         config = {'n_units_out': self.n_units_out}
         base_config = super(GroupedConv3DLayer, self).get_config()
-        return dict(list(base_config.items()) + list(config.items()))
+        config = dict(list(base_config.items()) + list(config.items()))
+        return config
 
 class ChannelShuffleLayer(Layer):
     def __init__(self, n_groups, **kwargs):
@@ -876,6 +917,7 @@ class ChannelShuffleLayer(Layer):
     def get_config(self):
         config = {'n_groups': self.n_groups}
         base_config = super(ChannelShuffleLayer, self).get_config()
-        return dict(list(base_config.items()) + list(config.items()))
+        config = dict(list(base_config.items()) + list(config.items()))
+        return config
 
 # endregion

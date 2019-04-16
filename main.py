@@ -27,8 +27,30 @@ Main file of the project.
 def __main():
     from experiments import train_keras, test_keras, train_pytorch, test_pytorch
 
+    from core import pytorch_utils
+    from nets import timeception_pytorch
+    from nets.layers_pytorch import ChannelShuffleLayer, DepthwiseConv1DLayer
+
+    import numpy as np
+    import torch
+
+    tensor = torch.tensor(np.zeros((32, 1024, 40, 7, 7), dtype=np.float32), dtype=torch.float32)
+    tensor = timeception_pytorch.Timeception(tensor.size(), 1, is_dilated=False)(tensor)
+    # print tensor.size()
+    # tensor = ChannelShuffleLayer(1024, 8)(tensor)
+    # print tensor.size()
+    # tensor = DepthwiseConv1DLayer(tensor.size(), kernel_size=5, dilation=1)(tensor)
+    print tensor.size()
+
+
+    # timeception_module = timeception_pytorch.Timeception(1024, 4, 8, is_dilated=True)
+
+    # tensor = timeception_module(tensor)
+    # print tensor.size()
+
+
     # to train Timeception using keras
-    train_keras.__main()
+    # train_keras.__main()
 
     # or using pytorch
     # train_pytorch.__main()

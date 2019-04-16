@@ -24,7 +24,7 @@ import torch.distributed as dist
 import torchvision.models as tmodels
 import importlib
 import torchsummary
-from core import torch_utils
+from core import pytorch_utils
 import torch.nn.functional as F
 import torch.optim as optim
 from torch.optim import lr_scheduler

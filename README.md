@@ -16,7 +16,9 @@ Please consider citing this work using this BibTeX entry
 ```
 
 ### How to Use?
+
 ###### Keras
+
 Using `keras`, we can define `timeception` as a sub-model.
 Then we use it along with another model definition.
 For example, here we define 4 `timeception` layers followed by a `dense` layer for classification.
@@ -53,7 +55,8 @@ Total params: 1,742,404
 ```
 
 ###### Tensorflow
-Using `tensorflow`, we can define `timeception` as a a list of nodes in the computational graph.
+
+Using `tensorflow`, we can define `timeception` as a list of nodes in the computational graph.
 Then we use it along with another model definition.
 For example, here a functions defines 4 `timeception` layers.
 It takes the input tensor, feedforward it to the `timeception` layers and return the output tensor `output`.
@@ -69,10 +72,28 @@ input = tf.placeholder(shape=(batch_size, 128, 7, 7, 1024))
 tensor = timeception.timeception_layers(input, n_layers=4)
 ```
 
+###### PyTorch
+
+Using `pytorch`, we can define `timeception` as a module.
+Then we use it along with another model definition.
+For example, here we define 4 `timeception` layers followed by a `dense` layer for classification..
+
+```python
+import torch
+from nets import timeception_pytorch
+
+# define input tensor
+input = tf.placeholder(shape=(batch_size, 128, 7, 7, 1024))
+
+# feedforward the input to the timeception layers
+tensor = timeception.timeception_layers(input, n_layers=4)
+```
+
 ### Installation
-We use python 2.7, and we depend on the following python packages.
+We use python 2.7.15, provided by Anaconda 4.6.2, and we depend on the following python packages.
 - Keras 2.2.4
 - Tensorflow 1.10.1
+- PyTorch 1.0.1
 
 ### Training
 

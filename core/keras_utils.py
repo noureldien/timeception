@@ -32,6 +32,7 @@ from __future__ import unicode_literals
 import os
 import json
 import pydot
+import logging
 import numpy as np
 
 import tensorflow as tf
@@ -43,6 +44,8 @@ from keras.utils import vis_utils
 from keras.models import Sequential, model_from_json
 
 from core import config_utils
+
+logger = logging.getLogger(__name__)
 
 # region Constants
 

@@ -1,61 +1,132 @@
-# coding=utf-8
+#!/usr/bin/env python
+# -*- coding: UTF-8 -*-
 
+########################################################################
+# GNU General Public License v3.0
+# GNU GPLv3
+# Copyright (c) 2019, Noureldien Hussein
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+########################################################################
 
+"""
+Layers for pytorch.
+"""
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
+import numpy as np
+import logging
 import torch
-from torch import nn, optim
-import torch.nn.functional as F
 import torch.utils.data
+
+from torch.nn import Module, Conv2d, Conv1d
 from torchvision import datasets, transforms
 from torch.autograd import Variable
-import torch
+from torch.nn import functional as F
 
-from core import torch_utils
+import torchviz
+import torchvision
+import torchsummary
 
-class ConvOverTimeLayer(nn.Module):
-    def __init__(self):
-        super(ConvOverTimeLayer, self).__init__()
+from core import pytorch_utils
 
-        self.conv_pointwises = [nn.Conv2d(10, 1, kernel_size=1).cuda() for _ in range(1024)]
+logger = logging.getLogger(__name__)
 
-    def forward(self, input):
-        # input is of shape (None, 20, 512, 7, 7)
+# region Basic Layers
 
-        input_shape = torch_utils.get_shape(input)
-        n_spatial_maps = input_shape[2]
+class ChannelShuffleLayer(Module):
+    """
+    Shuffle the channels across groups.
+    """
 
-        t_conv_list = []
-        for i in range(n_spatial_maps):
-            t = input[:, :, i]  # (None, 20, 7, 7)
-            t_conv = self.conv_pointwises[i](t)  # (None, 20, 7, 7)
-            t_conv = t_conv.unsqueeze(2)  # (None, 20, 1, 7, 7)
-            t_conv_list.append(t_conv)
+    def __init__(self, n_channels, n_groups):
+        super(ChannelShuffleLayer, self).__init__()
 
-        tensor = torch.cat(t_conv_list, 2)  # (None, 20, 512, 7, 7)
-        return tensor
+        n_channels_per_group = int(n_channels / n_groups)
+        assert n_channels_per_group * n_groups == n_channels
 
-class DepthwiseConvOverTimeLayer(nn.Module):
-    def __init__(self):
-        super(DepthwiseConvOverTimeLayer, self).__init__()
-
-        self.conv_depthwise = nn.Conv2d(512, 512 * 10, kernel_size=1, groups=1024)
-        self.conv_pointwises = [nn.Conv2d(10, 10, kernel_size=1).cuda() for _ in range(1024)]
+        self.n_channels_per_group = n_channels_per_group
+        self.n_groups = n_groups
 
     def forward(self, input):
-        # input is of shape (None, 20, 512, 7, 7)
-        input_shape = torch_utils.get_shape(input)
-        n_spatial_maps = input_shape[2]
+        """
+        input shape (None, 1024, 20, 7, 7), or (BN, C, T, H, W)
+        """
 
-        tensor = input.view(-1, 512, 7, 7)  # (None * 20, 512, 7, 7)
-        tensor = self.conv_depthwise(tensor)  # (None * 20, 512 * 3, 7, 7)
-        tensor = tensor.view(-1, 20, 512, 10, 7, 7)  # (None, 20, 512, 3, 7, 7)
-        tensor = tensor.max(dim=1)[0]  # (None, 512, 3, 7, 7)
+        input_shape = input.size()
+        n_samples, n_channels, n_timesteps, side_dim1, side_dim2 = input_shape
 
-        t_conv_list = []
-        for i in range(n_spatial_maps):
-            t_conv = tensor[:, i]  # (None, 3, 7, 7)
-            t_conv = self.conv_pointwises[i](t_conv)  # (None, 3, 7, 7)
-            t_conv = t_conv.unsqueeze(2)  # (None, 3, 1, 7, 7)
-            t_conv_list.append(t_conv)
+        n_groups = self.n_groups
+        n_channels_per_group = self.n_channels_per_group
 
-        tensor = torch.cat(t_conv_list, 2)  # (None, 3, 512, 7, 7)
+        tensor = input.view(n_samples, n_groups, n_channels_per_group, n_timesteps, side_dim1, side_dim2)
+        tensor = tensor.permute(0, 2, 1, 3, 4, 5)
+        tensor = tensor.contiguous()
+        tensor = tensor.view(n_samples, n_channels, n_timesteps, side_dim1, side_dim2)
+
         return tensor
+
+# endregion
+
+# region Timeception Layers
+
+class DepthwiseConv1DLayer(Module):
+    """
+    Shuffle the channels across groups.
+    """
+
+    def __init__(self, input_shape, kernel_size, dilation):
+        super(DepthwiseConv1DLayer, self).__init__()
+
+        self.kernel_size = kernel_size
+        self.dilation = dilation
+
+        n_samples, n_channels, n_timesteps, _, _ = input_shape
+
+        padding = pytorch_utils.calc_padding_1d(n_timesteps, kernel_size)
+        self.depthwise_conv1d = Conv1d(n_channels, n_channels, kernel_size, dilation=dilation, groups=n_channels, padding=padding)
+
+    def forward(self, input):
+        """
+        input shape (None, 1024, 20, 7, 7), or (BN, C, T, H, W)
+        """
+
+        input_shape = input.size()
+
+        n, c, t, h, w = input_shape
+
+        # transpose and reshape to hide the spatial dimension, only expose the temporal dimension for depthwise conv
+        tensor = input.permute(0, 3, 4, 1, 2)  # (None, 7, 7, 1024, 20)
+        tensor = tensor.contiguous()
+        tensor = tensor.view(-1, c, t)  # (None*7*7, 1024, 20)
+
+        # depthwise conv on the temporal dimension, as if it was the spatial dimension
+        tensor = self.depthwise_conv1d(tensor)  # (None*7*7, 1024, 20)
+
+        # get timesteps after convolution
+        t = tensor.size()[-1]
+
+        # reshape to get the spatial dimensions
+        tensor = tensor.view(n, h, w, c, t)  # (None, 7, 7, 1024, 20)
+
+        # finally, transpose to get the desired output shape
+        tensor = tensor.permute(0, 3, 4, 1, 2)  # (None, 1024, 20, 7, 7)
+
+        return tensor
+
+# endregion

@@ -34,43 +34,19 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import logging
-import warnings
-import random
 import os
-import sys
-import shutil
-import time
 import datetime
-import csv
-import itertools
-import math
-import threading
-import gc
-import argparse
-import natsort
-import cv2
-import glob
-import numpy as np
 from optparse import OptionParser
-from sklearn.preprocessing import label_binarize
 
 import tensorflow as tf
 import keras.backend as K
-import keras.layers
-from keras import optimizers
-from keras.layers import Dense, LeakyReLU, Dropout, Lambda, Conv2D, Activation, Conv3D, MaxPooling3D
-from keras.layers import Input, merge, concatenate, GRU, Concatenate, DepthwiseConv2D, Multiply
-from keras.optimizers import RMSprop, SGD, Adadelta, Adam, Adagrad, Adamax, Nadam
-from keras.models import Sequential, Model, load_model
+from keras.layers import Dense, LeakyReLU, Dropout, Input, Activation
+from keras.optimizers import SGD, Adam
+from keras.models import Sequential, Model
 from keras.layers.normalization import BatchNormalization
-from keras.regularizers import l2
-from keras.utils import multi_gpu_utils
-from keras.callbacks import LambdaCallback, Callback
 
 from nets import timeception
-from nets.layers_keras import DepthwiseConvOverTimeLayer, ReshapeLayer, TransposeLayer
-from nets.layers_keras import GroupedDenseLayer, MaxLayer, AverageLayer, SumLayer
-from nets.layers_keras import DepthwiseConv1DLayer, DepthwiseConv1DLayer, DepthwiseConv3DLayer, DepthwiseConv2DLayer
+from nets.layers_keras import MaxLayer
 from core import utils, keras_utils, image_utils, config_utils, const, config, data_utils
 from core.utils import Path as Pth
 
