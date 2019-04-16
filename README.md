@@ -1,6 +1,6 @@
 ## Timeception for Complex Action Recognition
 This code repository is the implementation for the paper [Timeception for Complex Action Recognition](https://arxiv.org/abs/1812.01289).
-Currently, this is `keras/tensorflow` implementation. We will follow up with the `pytorch` implementation as soon as possible.
+We provide the implementation for 3 different libraries: `keras`, `tensorflow` and `pytorch`.
 
 ![Timeception for Complex Action Recognition](./data/assets/timeception_layer.jpg "Timeception Block")
 
@@ -70,6 +70,9 @@ input = tf.placeholder(shape=(batch_size, 128, 7, 7, 1024))
 
 # feedforward the input to the timeception layers
 tensor = timeception.timeception_layers(input, n_layers=4)
+
+# the output is (32, 2480, 8, 7, 7)
+print (tensor.get_shape())
 ```
 
 ###### PyTorch
@@ -82,11 +85,21 @@ For example, here we define 4 `timeception` layers followed by a `dense` layer f
 import torch
 from nets import timeception_pytorch
 
-# define input tensor
-input = tf.placeholder(shape=(batch_size, 128, 7, 7, 1024))
+import numpy as np
+import torch as T
+from nets import timeception_pytorch
 
-# feedforward the input to the timeception layers
-tensor = timeception.timeception_layers(input, n_layers=4)
+# define input tensor
+input = T.tensor(np.zeros((batch_size, 1024, 128, 7, 7)))
+
+# define 4 layers of timeception
+timeception_module = timeception_pytorch.Timeception(input.size(), 4)
+
+# feedforward the input to the timeception layers 
+tensor = timeception_module(input)
+
+# the output is (32, 2480, 8, 7, 7)
+print (tensor.size())
 ```
 
 ### Installation

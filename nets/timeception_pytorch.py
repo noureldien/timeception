@@ -197,7 +197,10 @@ class Timeception(Module):
         layer = Conv3d(n_channels_in, n_channels_per_branch_out, kernel_size=(1, 1, 1))
         setattr(self, layer_name, layer)
         layer_name = 'maxpool_b5_g%d_tc%d' % (group_num, layer_num)
-        layer = MaxPool3d(kernel_size=(2, 1, 1), stride=(1, 1, 1), padding=(1, 0, 0))
+        layer = MaxPool3d(kernel_size=(2, 1, 1), stride=(1, 1, 1))
+        setattr(self, layer_name, layer)
+        layer_name = 'padding_b5_g%d_tc%d' % (group_num, layer_num)
+        layer = torch.nn.ReplicationPad3d((0, 0, 0, 0, 1, 0)) # left, right, top, bottom, front, back
         setattr(self, layer_name, layer)
         layer_name = 'bn_b5_g%d_tc%d' % (group_num, layer_num)
         layer = BatchNorm3d(n_channels_per_branch_out)
@@ -279,6 +282,7 @@ class Timeception(Module):
         # branch 5: dimension reduction followed by temporal max pooling
         t_5 = getattr(self, 'conv_b5_g%d_tc%d' % (group_num, layer_num))(tensor)
         t_5 = getattr(self, 'maxpool_b5_g%d_tc%d' % (group_num, layer_num))(t_5)
+        t_5 = getattr(self, 'padding_b5_g%d_tc%d' % (group_num, layer_num))(t_5)
         t_5 = getattr(self, 'bn_b5_g%d_tc%d' % (group_num, layer_num))(t_5)
 
         # concatenate channels of branches
