@@ -190,11 +190,10 @@ class Timeception(Model):
     def call(self, input, mask=None):
 
         n_layers = self.n_layers
-        is_dilated = self.is_dilated
         n_groups = self.n_groups
         expansion_factor = self.expansion_factor
 
-        output = self.__call_timeception_layers(input, n_layers, n_groups, expansion_factor, is_dilated)
+        output = self.__call_timeception_layers(input, n_layers, n_groups, expansion_factor)
 
         return output
 
@@ -329,7 +328,7 @@ class Timeception(Model):
         layer = Concatenate(axis=4, name=layer_name)
         setattr(self, layer_name, layer)
 
-    def __call_timeception_layers(self, tensor, n_layers, n_groups, expansion_factor, is_dilated):
+    def __call_timeception_layers(self, tensor, n_layers, n_groups, expansion_factor):
         input_shape = K.int_shape(tensor)
         assert len(input_shape) == 5
 

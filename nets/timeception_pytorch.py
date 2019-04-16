@@ -67,11 +67,10 @@ class Timeception(Module):
     def forward(self, input):
 
         n_layers = self.n_layers
-        is_dilated = self.is_dilated
         n_groups = self.n_groups
         expansion_factor = self.expansion_factor
 
-        output = self.__call_timeception_layers(input, n_layers, n_groups, expansion_factor, is_dilated)
+        output = self.__call_timeception_layers(input, n_layers, n_groups, expansion_factor)
 
         return output
 
@@ -198,13 +197,13 @@ class Timeception(Module):
         layer = Conv3d(n_channels_in, n_channels_per_branch_out, kernel_size=(1, 1, 1))
         setattr(self, layer_name, layer)
         layer_name = 'maxpool_b5_g%d_tc%d' % (group_num, layer_num)
-        layer = MaxPool3d(kernel_size=(2, 1, 1), stride=(1, 1, 1))
+        layer = MaxPool3d(kernel_size=(2, 1, 1), stride=(1, 1, 1), padding=(1, 0, 0))
         setattr(self, layer_name, layer)
         layer_name = 'bn_b5_g%d_tc%d' % (group_num, layer_num)
         layer = BatchNorm3d(n_channels_per_branch_out)
         setattr(self, layer_name, layer)
 
-    def __call_timeception_layers(self, tensor, n_layers, n_groups, expansion_factor, is_dilated):
+    def __call_timeception_layers(self, tensor, n_layers, n_groups, expansion_factor):
         input_shape = tensor.size()
         assert len(input_shape) == 5
 
@@ -218,7 +217,7 @@ class Timeception(Module):
             n_channels_per_branch, n_channels_out = self.__get_n_channels_per_branch(n_groups, expansion_factor, n_channels_in)
 
             # temporal conv per group
-            tensor = self.__call_grouped_convolutions(tensor, n_groups, n_channels_per_branch, layer_num)
+            tensor = self.__call_grouped_convolutions(tensor, n_groups, layer_num)
 
             # downsample over time
             tensor = getattr(self, 'maxpool_tc%d' % (layer_num))(tensor)
@@ -226,7 +225,7 @@ class Timeception(Module):
 
         return tensor
 
-    def __call_grouped_convolutions(self, tensor_input, n_groups, n_channels_per_branch, layer_num):
+    def __call_grouped_convolutions(self, tensor_input, n_groups, layer_num):
 
         n_channels_in = tensor_input.size()[1]
         n_channels_per_group_in = int(n_channels_in / n_groups)
@@ -241,7 +240,7 @@ class Timeception(Module):
             idx_end = (idx_group + 1) * n_channels_per_group_in
             tensor = tensor_input[:, idx_start:idx_end]
 
-            tensor = self.__call_temporal_convolutional_block(tensor, n_channels_per_branch, layer_num, group_num)
+            tensor = self.__call_temporal_convolutional_block(tensor, layer_num, group_num)
             t_outputs.append(tensor)
 
         # concatenate channels of groups
@@ -253,7 +252,7 @@ class Timeception(Module):
 
         return tensor
 
-    def __call_temporal_convolutional_block(self, tensor, n_channels_per_branch, layer_num, group_num):
+    def __call_temporal_convolutional_block(self, tensor, layer_num, group_num):
         """
         Feedforward for 5 branches of convolutions that operate of channels of each group.
         """
