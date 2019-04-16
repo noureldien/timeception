@@ -179,9 +179,6 @@ class DataGeneratorCharades(keras.utils.Sequence):
         else:
             (_, _, video_names, y) = utils.pkl_load(annotation_path)
 
-        video_names = video_names[:100]
-        y = y[:100]
-
         # convert relative to root pathes
         feats_path = np.array(['%s/%s/%s.pkl' % (root_path, feature_name, p) for p in video_names])
 
@@ -217,8 +214,7 @@ class DataGeneratorCharades(keras.utils.Sequence):
 
         # loop of feature pathes and load them
         for idx, p in enumerate(feats_path):
-            # x[idx] = utils.pkl_load(p)
-            pass
+            x[idx] = utils.pkl_load(p)
 
         return x, y
 

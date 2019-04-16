@@ -105,7 +105,7 @@ def train_tco():
     logger.info(model.summary())
 
     # train the model
-    model.fit_generator(epochs=n_epochs, generator=data_generator_tr, validation_data=data_generator_te, use_multiprocessing=True, workers=n_workers, callbacks=[save_callback])
+    model.fit_generator(epochs=n_epochs, generator=data_generator_tr, validation_data=data_generator_te, use_multiprocessing=True, workers=n_workers, callbacks=[save_callback], verbose=2)
 
     logger.info('--- finish time')
     logger.info(datetime.datetime.now())
@@ -137,8 +137,7 @@ def __define_data_generator(is_training):
     batch_size = batch_size_tr if is_training else batch_size_te
 
     # size and name of feature
-    feature_name = 'features_%s_%s' % (backbone_model_name, backbone_feature_name)
-    feature_name = 'features_i3d_pytorch_charades_rgb_mixed_5c_32_frames'
+    feature_name = 'features_%s_%s_%sf' % (backbone_model_name, backbone_feature_name, n_timesteps)
     c, h, w = utils.get_model_feat_maps_info(backbone_model_name, backbone_feature_name)
     feature_dim = (n_timesteps, h, w, c)
 
