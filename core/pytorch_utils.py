@@ -29,6 +29,7 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
+import logging
 import numpy as np
 
 import torch
@@ -38,6 +39,8 @@ from torch.nn import functional as F
 import torchviz
 import torchvision
 import torchsummary
+
+logger = logging.getLogger(__name__)
 
 def save_model(model, path):
     model.save_state_dict(path)

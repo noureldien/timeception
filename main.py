@@ -25,7 +25,6 @@ Main file of the project.
 """
 
 def __main():
-
     from experiments import train_keras, test_keras, train_pytorch, test_pytorch
 
     # to train Timeception using keras

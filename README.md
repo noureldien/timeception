@@ -66,12 +66,12 @@ import tensorflow as tf
 from nets import timeception
 
 # define input tensor
-input = tf.placeholder(shape=(32, 128, 7, 7, 1024))
+input = tf.placeholder(tf.float32, shape=(None, 128, 7, 7, 1024))
 
 # feedforward the input to the timeception layers
 tensor = timeception.timeception_layers(input, n_layers=4)
 
-# the output is (32, 2480, 8, 7, 7)
+# the output is (?, 8, 7, 7, 2480)
 print (tensor.get_shape())
 ```
 
@@ -87,13 +87,13 @@ import torch as T
 from nets import timeception_pytorch
 
 # define input tensor
-input = T.tensor(np.zeros((32, 1024, 128, 7, 7)))
+input = T.tensor(np.zeros((32, 1024, 128, 7, 7)), dtype=T.float32)
 
 # define 4 layers of timeception
-timeception_module = timeception_pytorch.Timeception(input.size(), n_layers=4)
+module = timeception_pytorch.Timeception(input.size(), n_layers=4)
 
 # feedforward the input to the timeception layers 
-tensor = timeception_module(input)
+tensor = module(input)
 
 # the output is (32, 2480, 8, 7, 7)
 print (tensor.size())

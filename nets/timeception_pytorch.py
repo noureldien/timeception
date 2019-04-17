@@ -49,9 +49,13 @@ class Timeception(Module):
     Timeception is defined as a keras model.
     """
 
-    def __init__(self, input_shape, n_layers=4, n_groups=8, is_dilated=True):
+    def __init__(self, input_shape, n_layers=4, n_groups=8):
 
         super(Timeception, self).__init__()
+
+        # TODO: Add support for multi-scale using dilation rates
+        # current, for pytorch, we only support multi-scale using kernel sizes
+        is_dilated = False
 
         expansion_factor = 1.25
         self.expansion_factor = expansion_factor
