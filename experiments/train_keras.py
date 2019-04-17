@@ -119,9 +119,7 @@ def __define_data_generator(is_training):
 
     # data generators
     params = {'batch_size': batch_size, 'n_classes': n_classes, 'feature_name': feature_name, 'feature_dim': feature_dim, 'is_shuffle': True, 'is_training': is_training}
-
-    # batch_size, n_channels, n_classes, is_training, shuffle=True
-    data_generator_class = data_utils.DATA_GENERATOR_DICT[dataset_name]
+    data_generator_class = data_utils.KERAS_DATA_GENERATORS_DICT[dataset_name]
     data_generator = data_generator_class(**params)
 
     return data_generator
@@ -131,8 +129,22 @@ def __define_timeception_model():
     Define Timeception classifier.
     """
 
+    # some configurations for the model
+    classification_type = config.cfg.MODEL.CLASSIFICATION_TYPE
+    solver_name = config.cfg.SOLVER.NAME
+    solver_lr = config.cfg.SOLVER.LR
+    adam_epsilon = config.cfg.SOLVER.ADAM_EPSILON
+    n_tc_timesteps = config.cfg.MODEL.N_TC_TIMESTEPS
+    backbone_name = config.cfg.MODEL.BACKBONE_CNN
+    feature_name = config.cfg.MODEL.BACKBONE_FEATURE
+    n_tc_layers = config.cfg.MODEL.N_TC_LAYERS
+    n_classes = config.cfg.MODEL.N_CLASSES
+    is_dilated = config.cfg.MODEL.MULTISCALE_TYPE
+    n_channels_in, channel_h, channel_w = utils.get_model_feat_maps_info(backbone_name, feature_name)
+    n_groups = int(n_channels_in / 128.0)
+
     # optimizer and loss for either multi-label "ml" or single-label "sl" classification
-    if config.cfg.MODEL.CLASSIFICATION_TYPE == 'ml':
+    if classification_type == 'ml':
         loss = keras_utils.LOSSES[3]
         output_activation = keras_utils.ACTIVATIONS[2]
         metric_function = keras_utils.map_charades
@@ -142,22 +154,7 @@ def __define_timeception_model():
         metric_function = keras_utils.METRICS[0]
 
     # define the optimizer
-    lr = config.cfg.SOLVER.LR
-    if config.cfg.SOLVER.NAME == 'sgd':
-        optimizer = SGD(lr=0.01)
-    else:
-        epsilon = config.cfg.SOLVER.ADAM_EPSILON
-        optimizer = Adam(lr=lr, epsilon=epsilon)
-
-    # some configurations for the model
-    n_tc_timesteps = config.cfg.MODEL.N_TC_TIMESTEPS
-    backbone_name = config.cfg.MODEL.BACKBONE_CNN
-    feature_name = config.cfg.MODEL.BACKBONE_FEATURE
-    n_tc_layers = config.cfg.MODEL.N_TC_LAYERS
-    n_classes = config.cfg.MODEL.N_CLASSES
-    is_dilated = config.cfg.MODEL.MULTISCALE_TYPE
-    n_channels_in, channel_h, channel_w = utils.get_model_feat_maps_info(backbone_name, feature_name)
-    n_groups = int(n_channels_in / 128.0)
+    optimizer = SGD(lr=0.01) if solver_name == 'sgd' else Adam(lr=solver_lr, epsilon=adam_epsilon)
 
     # input layer
     input_shape = (n_tc_timesteps, channel_h, channel_w, n_channels_in)  # (T, H, W, C)

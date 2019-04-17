@@ -29,7 +29,9 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
+import os
 import logging
+import json
 import numpy as np
 from collections import OrderedDict
 
@@ -239,3 +241,34 @@ def summary(model, input_size, batch_size=-1, device="cuda"):
     print("Estimated Total Size (MB): %0.2f" % total_size)
     print("----------------------------------------------------------------")
     # return summary
+
+# region Classes
+
+class ModelSaver():
+    def __init__(self, model, dataset_name, model_name):
+        self.model = model
+        self.model_name = model_name
+
+        model_root_path = './data/%s/models' % (dataset_name)
+        assert os.path.exists(model_root_path)
+
+        model_root_path = './data/%s/models/%s' % (dataset_name, model_name)
+        if not os.path.exists(model_root_path):
+            os.mkdir(model_root_path)
+
+        self.model_root_path = model_root_path
+
+    def save(self, idx_epoch):
+        """
+        Save the model.
+        """
+        epoch_num = idx_epoch + 1
+        model_root_path = self.model_root_path
+        model_state_path = str('%s/%03d.pt' % (model_root_path, epoch_num))
+
+        # save model state using pytorch
+        model_state = self.model.state_dict()
+        torch.save(model_state, model_state_path)
+
+
+# endregion

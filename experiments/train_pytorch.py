@@ -43,8 +43,10 @@ import torch
 import torch.utils.data
 
 from torch.nn import functional as F
-from torch.nn import Module, Dropout, BatchNorm1d, LeakyReLU, Linear, LogSoftmax
+from torch.nn import Module, Dropout, BatchNorm1d, LeakyReLU, Linear, LogSoftmax, Sigmoid
+from torch.optim import SGD, Adam
 from torch.autograd import Variable
+from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
 
 import torchviz
@@ -58,7 +60,7 @@ import torchsummary
 # from keras.models import Model
 
 from nets import timeception_pytorch
-from core import utils, pytorch_utils, image_utils, config_utils, const, config, data_utils
+from core import utils, pytorch_utils, image_utils, config_utils, const, config, data_utils, metrics
 from core.utils import Path as Pth
 
 logger = logging.getLogger(__name__)
@@ -70,31 +72,66 @@ def train_tco():
     """
 
     # get some configs for the training
-    n_workers = config.cfg.TRAIN.N_WORKERS
     n_epochs = config.cfg.TRAIN.N_EPOCHS
     dataset_name = config.cfg.DATASET_NAME
     model_name = '%s_%s' % (config.cfg.MODEL.NAME, utils.timestamp())
+    device = 'cuda'
 
     # data generators
-    data_generator_tr = __define_data_generator(is_training=True)
-    data_generator_te = __define_data_generator(is_training=False)
+    loader_tr, n_samples_tr, n_batches_tr = __define_loader(is_training=True)
+    loader_te, n_samples_te, n_batches_te = __define_loader(is_training=False)
 
     logger.info('--- start time')
     logger.info(datetime.datetime.now())
-    logger.info('... [tr]: n_samples, n_batch, batch_size: %d, %d, %d' % (data_generator_tr.n_samples, data_generator_tr.n_batches, config.cfg.TRAIN.BATCH_SIZE))
-    logger.info('... [te]: n_samples, n_batch, batch_size: %d, %d, %d' % (data_generator_te.n_samples, data_generator_te.n_batches, config.cfg.TEST.BATCH_SIZE))
-
-    # callback to save the model
-    # save_callback = keras_utils.SaveCallback(dataset_name, model_name)
+    logger.info('... [tr]: n_samples, n_batch, batch_size: %d, %d, %d' % (n_samples_tr, n_batches_tr, config.cfg.TRAIN.BATCH_SIZE))
+    logger.info('... [te]: n_samples, n_batch, batch_size: %d, %d, %d' % (n_samples_te, n_batches_te, config.cfg.TEST.BATCH_SIZE))
 
     # load model
-    model = Model()
+    model, optimizer, loss, metric = __define_timeception_model(device)
     logger.info(pytorch_utils.summary(model, model._input_shape[1:], batch_size=-1, device='cpu'))
 
+    # save the model
+    model_saver = pytorch_utils.ModelSaver(model, dataset_name, model_name)
 
+    # loop on the epochs
+    for idx_epoch in range(n_epochs):
 
-    # train the model
-    model.fit_generator(epochs=n_epochs, generator=data_generator_tr, validation_data=data_generator_te, use_multiprocessing=True, workers=n_workers, callbacks=[save_callback], verbose=2)
+        loss_tr = 0.0
+        acc_tr = 0.0
+        loss_te = 0.0
+        acc_te = 0.0
+
+        # flag model as training
+        model.train()
+
+        # training
+        for idx_batch, (x, y_true) in enumerate(loader_tr):
+            x, y_true = x.to(device), y_true.to(device)
+            optimizer.zero_grad()
+            y_pred = model(x)
+            loss = F.nll_loss(y_pred, y_true)
+            loss.backward()
+            optimizer.step()
+
+            # calculate accuracy
+            y_true = y_true.data
+            y_pred = y_pred.data
+            loss_batch_tr = loss.data
+            acc_batch_tr = metric(y_true, y_pred)
+            _ = 10
+
+        # flag model as testing
+        model.test()
+
+        # testing
+        for idx_batch, (x, y_true) in enumerate(loader_te):
+            x, y_true = x.to(device), y_true.to(device)
+            y_pred = model(x)
+            loss_batch_te = F.nll_loss(y_pred, y_true).data
+            acc_batch_te = metric(y_true.data, y_pred.data)
+
+        # after each epoch, save data
+        model_saver.save(idx_epoch)
 
     logger.info('--- finish time')
     logger.info(datetime.datetime.now())
@@ -107,9 +144,9 @@ def train_ete():
 
     raise Exception('Sorry, not implemented yet!')
 
-def __define_data_generator(is_training):
+def __define_loader(is_training):
     """
-    Define data generator.
+    Define data loader.
     """
 
     # get some configs for the training
@@ -118,6 +155,7 @@ def __define_data_generator(is_training):
     backbone_model_name = config.cfg.MODEL.BACKBONE_CNN
     backbone_feature_name = config.cfg.MODEL.BACKBONE_FEATURE
     n_timesteps = config.cfg.MODEL.N_TC_TIMESTEPS
+    n_workers = config.cfg.TRAIN.N_WORKERS
 
     batch_size_tr = config.cfg.TRAIN.BATCH_SIZE
     batch_size_te = config.cfg.TEST.BATCH_SIZE
@@ -129,13 +167,42 @@ def __define_data_generator(is_training):
     feature_dim = (n_timesteps, h, w, c)
 
     # data generators
-    params = {'batch_size': batch_size, 'n_classes': n_classes, 'feature_name': feature_name, 'feature_dim': feature_dim, 'is_shuffle': True, 'is_training': is_training}
+    params = {'batch_size': batch_size, 'n_classes': n_classes, 'feature_name': feature_name, 'feature_dim': feature_dim, 'is_training': is_training}
+    dataset_class = data_utils.KERAS_DATA_GENERATORS_DICT[dataset_name]
+    dataset = dataset_class(**params)
+    n_samples = dataset.n_samples
+    n_batches = dataset.n_batches
 
-    # batch_size, n_channels, n_classes, is_training, shuffle=True
-    data_generator_class = data_utils.DATA_GENERATOR_DICT[dataset_name]
-    data_generator = data_generator_class(**params)
+    data_loader = DataLoader(dataset, batch_size=batch_size, num_workers=n_workers, shuffle=True)
 
-    return data_generator
+    return data_loader, n_samples, n_batches
+
+def __define_timeception_model(device):
+    """
+    Define model, optimizer, loss function and metric function.
+    """
+    # some configurations
+    classification_type = config.cfg.MODEL.CLASSIFICATION_TYPE
+    solver_name = config.cfg.SOLVER.NAME
+    solver_lr = config.cfg.SOLVER.LR
+    adam_epsilon = config.cfg.SOLVER.ADAM_EPSILON
+
+    # define model
+    model = Model().to(device)
+    model_param = model.parameters()
+
+    # define the optimizer
+    optimizer = SGD(model_param, lr=0.01) if solver_name == 'sgd' else Adam(model_param, lr=solver_lr, eps=adam_epsilon)
+
+    # loss and evaluation function for either multi-label "ml" or single-label "sl" classification
+    if classification_type == 'ml':
+        loss = torch.nn.BCELoss
+        metric = metrics.map_charades
+    else:
+        loss = torch.nn.NLLLoss
+        metric = metrics.accuracy
+
+    return model, optimizer, loss, metric
 
 class Model(Module):
     """
@@ -152,6 +219,7 @@ class Model(Module):
         n_tc_layers = config.cfg.MODEL.N_TC_LAYERS
         n_classes = config.cfg.MODEL.N_CLASSES
         is_dilated = config.cfg.MODEL.MULTISCALE_TYPE
+        OutputActivation = Sigmoid if config.cfg.MODEL.CLASSIFICATION_TYPE == 'ml' else LogSoftmax
         n_channels_in, channel_h, channel_w = utils.get_model_feat_maps_info(backbone_name, feature_name)
         n_groups = int(n_channels_in / 128.0)
 
@@ -171,7 +239,7 @@ class Model(Module):
         self.ac1 = LeakyReLU(0.2)
         self.do2 = Dropout(0.25)
         self.l2 = Linear(512, n_classes)
-        self.ac2 = LogSoftmax()
+        self.ac2 = OutputActivation()
 
     def forward(self, input):
         # feedforward the input to the timeception layers

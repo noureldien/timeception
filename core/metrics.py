@@ -32,7 +32,7 @@ from __future__ import unicode_literals
 import numpy as np
 from sklearn.metrics import average_precision_score
 
-def mean_avg_precision_charades(y_true, y_pred):
+def map_charades(y_true, y_pred):
     """ Returns mAP """
     m_aps = []
     n_classes = y_pred.shape[1]
@@ -60,13 +60,19 @@ def mean_avg_precision_charades(y_true, y_pred):
     m_ap = np.mean(m_aps)
     return m_ap
 
-def mean_avg_precision_sklearn(y_true, y_pred):
+def map_sklearn(y_true, y_pred):
     # """ Returns mAP """
     n_classes = y_true.shape[1]
     map = [average_precision_score(y_true[:, i], y_pred[:, i]) for i in range(n_classes)]
     map = np.nan_to_num(map)
     map = np.mean(map)
     return map
+
+def accuracy(y_true, y_pred):
+    idx = np.argmax(y_pred, axis=1)
+    n_items = len(y_true)
+    accuracy = np.sum(idx == y_true) / float(n_items)
+    return accuracy
 
 def acuracy_top_n(n_top, y_true, y_pred):
     n_corrects = 0
@@ -79,3 +85,4 @@ def acuracy_top_n(n_top, y_true, y_pred):
     n = len(y_true)
     score = n_corrects / float(n)
     return score
+

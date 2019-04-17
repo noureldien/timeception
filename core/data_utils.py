@@ -30,10 +30,6 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import logging
-import h5py
-import os
-import json
-import natsort
 import random
 import numpy as np
 import pickle as pkl
@@ -41,8 +37,10 @@ from datetime import datetime
 from multiprocessing.dummy import Pool
 
 import keras.utils
+import torch.utils.data
+import torchvision
 
-from core import utils
+from core import utils, config
 from core.utils import Path as Pth
 
 logger = logging.getLogger(__name__)
@@ -153,7 +151,7 @@ class AsyncLoaderVideoFeatures():
 
 # endregion
 
-# region Data Generators
+# region Data Generators (Keras)
 
 class DataGeneratorCharades(keras.utils.Sequence):
     'Generates data for Keras'
@@ -168,7 +166,6 @@ class DataGeneratorCharades(keras.utils.Sequence):
         self.feature_dim = feature_dim
         self.feature_name = feature_name
         self.is_shuffle = is_shuffle
-        self.n_items = None
         self.dataset_name = 'charades'
 
         # load annotation
@@ -200,7 +197,7 @@ class DataGeneratorCharades(keras.utils.Sequence):
 
     def __getitem__(self, index):
         """
-        Generate one batch of data
+        Generate one batch of data.
         """
 
         idx_start = index * self.batch_size
@@ -236,8 +233,83 @@ class DataGeneratorCharades(keras.utils.Sequence):
 
 # endregion
 
-# region Costants
+# region Data Loaders (PyTorch)
 
-DATA_GENERATOR_DICT = {'charades': DataGeneratorCharades}
+class DatasetCharades(torch.utils.data.Dataset):
+    def __init__(self, batch_size, n_classes, feature_dim, feature_name, is_training, is_shuffle=True):
+        """
+        Initialization
+        """
+
+        self.batch_size = batch_size
+        self.is_training = is_training
+        self.n_classes = n_classes
+        self.feature_dim = feature_dim
+        self.feature_name = feature_name
+        self.is_shuffle = is_shuffle
+        self.dataset_name = 'charades'
+
+        # load annotation
+        root_path = './data/charades'
+        annotation_path = '%s/annotation/video_annotation.pkl' % (root_path)
+        if self.is_training:
+            (video_names, y, _, _) = utils.pkl_load(annotation_path)
+        else:
+            (_, _, video_names, y) = utils.pkl_load(annotation_path)
+
+        # in case of single label classification, debinarize the labels
+        if config.cfg.MODEL.CLASSIFICATION_TYPE == 'sl':
+            y = utils.debinarize_label(y)
+
+        # convert relative to root pathes
+        feats_path = np.array(['%s/%s/%s.pkl' % (root_path, feature_name, p) for p in video_names])
+
+        n_samples = len(y)
+        self.n_samples = n_samples
+        self.n_batches = utils.calc_num_batches(n_samples, batch_size)
+        self.feats_path = feats_path
+        self.y = y
+
+        # shuffle the data
+        if self.is_shuffle:
+            self.__shuffle()
+
+    def __getitem__(self, index):
+        """
+        Generate one batch of data
+        """
+
+        idx_start = index * self.batch_size
+        idx_stop = (index + 1) * self.batch_size
+        y = self.y[idx_start:idx_stop]
+        feats_path = self.feats_path[idx_start:idx_stop]
+
+        n_items = len(feats_path)
+        x_shape = tuple([n_items] + list(self.feature_dim))
+        x = np.zeros(x_shape, dtype=np.float32)
+
+        # loop of feature pathes and load them
+        for idx, p in enumerate(feats_path):
+            # x[idx] = utils.pkl_load(p)
+            pass
+
+        return x, y
+
+    def __len__(self):
+        return self.n_samples
+
+    def __shuffle(self):
+        idx = range(self.n_samples)
+        np.random.shuffle(idx)
+        self.feats_path = self.feats_path[idx]
+        self.y = self.y[idx]
+
+# endregion
+
+# region Constants
+
+KERAS_DATA_GENERATORS_DICT = {'charades': DataGeneratorCharades}
+
+PYTORCH_DATASETS_DICT = {'charades': DatasetCharades}
 
 # endregion
