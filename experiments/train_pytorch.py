@@ -131,7 +131,7 @@ def train_tco():
             sys.stdout.write('\r%04ds - epoch: %02d/%02d, batch [tr]: %02d/%02d, loss, %s: %0.2f, %0.2f ' % (duration, epoch_num, n_epochs, batch_num, n_batches_tr, metric_fn_name, loss_b_tr, acc_b_tr))
 
         # flag model as testing
-        model.val()
+        model.eval()
 
         # testing
         for idx_batch, (x, y_true) in enumerate(loader_te):

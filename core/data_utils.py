@@ -284,9 +284,10 @@ class DatasetCharades(torch.utils.data.Dataset):
 
         y = self.y[index]
         p = self.feats_path[index]
-        x = utils.pkl_load(p)
+        x = utils.pkl_load(p)  # (T, H, W, C)
 
-        # x = np.zeros(self.feature_dim, dtype=np.float32)
+        # convert to channel last
+        x = np.transpose(x, (3, 0, 1, 2))  # (T, H, W, C)
 
         return x, y
 
