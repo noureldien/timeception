@@ -91,7 +91,7 @@ def train_tco():
     model = Model()
     logger.info(pytorch_utils.summary(model, model._input_shape[1:], batch_size=-1, device='cpu'))
 
-    return
+
 
     # train the model
     model.fit_generator(epochs=n_epochs, generator=data_generator_tr, validation_data=data_generator_te, use_multiprocessing=True, workers=n_workers, callbacks=[save_callback], verbose=2)
