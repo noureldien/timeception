@@ -66,7 +66,7 @@ import tensorflow as tf
 from nets import timeception
 
 # define input tensor
-input = tf.placeholder(shape=(batch_size, 128, 7, 7, 1024))
+input = tf.placeholder(shape=(32, 128, 7, 7, 1024))
 
 # feedforward the input to the timeception layers
 tensor = timeception.timeception_layers(input, n_layers=4)
@@ -82,15 +82,12 @@ Then we use it along with another model definition.
 For example, here we define 4 `timeception` layers followed by a `dense` layer for classification..
 
 ```python
-import torch
-from nets import timeception_pytorch
-
 import numpy as np
 import torch as T
 from nets import timeception_pytorch
 
 # define input tensor
-input = T.tensor(np.zeros((batch_size, 1024, 128, 7, 7)))
+input = T.tensor(np.zeros((32, 1024, 128, 7, 7)))
 
 # define 4 layers of timeception
 timeception_module = timeception_pytorch.Timeception(input.size(), n_layers=4)
