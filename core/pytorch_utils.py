@@ -46,6 +46,8 @@ import torchsummary
 
 logger = logging.getLogger(__name__)
 
+# region Helpers
+
 def save_model(model, path):
     model.save_state_dict(path)
 
@@ -241,6 +243,8 @@ def summary(model, input_size, batch_size=-1, device="cuda"):
     print("Estimated Total Size (MB): %0.2f" % total_size)
     print("----------------------------------------------------------------")
     # return summary
+
+# endregion
 
 # region Classes
 

@@ -46,8 +46,6 @@ def map_charades(y_true, y_pred):
         if n_pos < 0.1:
             m_aps.append(float('nan'))
             continue
-        raise Exception('make sure fp.sum() has no usage')
-        fp.sum()
         f_pcs = np.cumsum(fp)
         t_pcs = np.cumsum(tp)
         prec = t_pcs / (f_pcs + t_pcs).astype(float)

@@ -33,8 +33,10 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
-import logging
 import os
+import sys
+import time
+import logging
 import datetime
 import numpy as np
 from optparse import OptionParser
@@ -52,12 +54,6 @@ from torchvision import datasets, transforms
 import torchviz
 import torchvision
 import torchsummary
-
-# import tensorflow as tf
-# import keras.backend as K
-# from keras.layers import Dense, LeakyReLU, Dropout, Input, Activation, BatchNormalization
-# from keras.optimizers import SGD, Adam
-# from keras.models import Model
 
 from nets import timeception_pytorch
 from core import utils, pytorch_utils, image_utils, config_utils, const, config, data_utils, metrics
@@ -87,48 +83,83 @@ def train_tco():
     logger.info('... [te]: n_samples, n_batch, batch_size: %d, %d, %d' % (n_samples_te, n_batches_te, config.cfg.TEST.BATCH_SIZE))
 
     # load model
-    model, optimizer, loss, metric = __define_timeception_model(device)
-    logger.info(pytorch_utils.summary(model, model._input_shape[1:], batch_size=-1, device='cpu'))
+    model, optimizer, loss_fn, metric_fn, metric_fn_name = __define_timeception_model(device)
+    logger.info(pytorch_utils.summary(model, model._input_shape[1:], batch_size=2, device='cuda'))
 
     # save the model
     model_saver = pytorch_utils.ModelSaver(model, dataset_name, model_name)
 
     # loop on the epochs
+    sys.stdout.write('\n')
     for idx_epoch in range(n_epochs):
+
+        epoch_num = idx_epoch + 1
 
         loss_tr = 0.0
         acc_tr = 0.0
         loss_te = 0.0
         acc_te = 0.0
 
+        tt1 = time.time()
+
         # flag model as training
         model.train()
 
         # training
         for idx_batch, (x, y_true) in enumerate(loader_tr):
+            batch_num = idx_batch + 1
+
             x, y_true = x.to(device), y_true.to(device)
             optimizer.zero_grad()
             y_pred = model(x)
-            loss = F.nll_loss(y_pred, y_true)
+            loss = loss_fn(y_pred, y_true)
             loss.backward()
             optimizer.step()
 
             # calculate accuracy
-            y_true = y_true.data
-            y_pred = y_pred.data
-            loss_batch_tr = loss.data
-            acc_batch_tr = metric(y_true, y_pred)
-            _ = 10
+            y_true = y_true.cpu().numpy().astype(np.int32)
+            y_pred = y_pred.cpu().detach().numpy()
+            loss_b_tr = loss.cpu().detach().numpy()
+            acc_b_tr = metric_fn(y_true, y_pred)
+
+            loss_tr += loss_b_tr
+            acc_tr += acc_b_tr
+            loss_b_tr = loss_tr / float(batch_num)
+            acc_b_tr = acc_tr / float(batch_num)
+            tt2 = time.time()
+            duration = tt2 - tt1
+            sys.stdout.write('\r%04ds - epoch: %02d/%02d, batch [tr]: %02d/%02d, loss, %s: %0.2f, %0.2f ' % (duration, epoch_num, n_epochs, batch_num, n_batches_tr, metric_fn_name, loss_b_tr, acc_b_tr))
 
         # flag model as testing
-        model.test()
+        model.val()
 
         # testing
         for idx_batch, (x, y_true) in enumerate(loader_te):
+            batch_num = idx_batch + 1
+
             x, y_true = x.to(device), y_true.to(device)
             y_pred = model(x)
-            loss_batch_te = F.nll_loss(y_pred, y_true).data
-            acc_batch_te = metric(y_true.data, y_pred.data)
+            loss_b_te = loss_fn(y_pred, y_true).cpu().detach().numpy()
+            y_true = y_true.cpu().numpy().astype(np.int32)
+            y_pred = y_pred.cpu().detach().numpy()
+            acc_b_te = metric_fn(y_true, y_pred)
+
+            loss_te += loss_b_te
+            acc_te += acc_b_te
+            loss_b_te = loss_te / float(batch_num)
+            acc_b_te = acc_te / float(batch_num)
+            tt2 = time.time()
+            duration = tt2 - tt1
+            sys.stdout.write('\r%04ds - epoch: %02d/%02d, batch [te]: %02d/%02d, loss, %s: %0.2f, %0.2f ' % (duration, epoch_num, n_epochs, batch_num, n_batches_te, metric_fn_name, loss_b_te, acc_b_te))
+
+        loss_tr /= float(n_batches_tr)
+        loss_te /= float(n_batches_te)
+        acc_tr /= float(n_batches_tr)
+        acc_te /= float(n_batches_te)
+
+        tt2 = time.time()
+        duration = tt2 - tt1
+        sys.stdout.write('\r%04ds - epoch: %02d/%02d, [tr]: %0.2f, %0.2f, [te]: %0.2f, %0.2f           \n' % (duration, epoch_num, n_epochs, loss_tr, acc_te, loss_te, acc_te))
 
         # after each epoch, save data
         model_saver.save(idx_epoch)
@@ -164,11 +195,11 @@ def __define_loader(is_training):
     # size and name of feature
     feature_name = 'features_%s_%s_%sf' % (backbone_model_name, backbone_feature_name, n_timesteps)
     c, h, w = utils.get_model_feat_maps_info(backbone_model_name, backbone_feature_name)
-    feature_dim = (n_timesteps, h, w, c)
+    feature_dim = (c, n_timesteps, h, w)
 
     # data generators
     params = {'batch_size': batch_size, 'n_classes': n_classes, 'feature_name': feature_name, 'feature_dim': feature_dim, 'is_training': is_training}
-    dataset_class = data_utils.KERAS_DATA_GENERATORS_DICT[dataset_name]
+    dataset_class = data_utils.PYTORCH_DATASETS_DICT[dataset_name]
     dataset = dataset_class(**params)
     n_samples = dataset.n_samples
     n_batches = dataset.n_batches
@@ -196,13 +227,15 @@ def __define_timeception_model(device):
 
     # loss and evaluation function for either multi-label "ml" or single-label "sl" classification
     if classification_type == 'ml':
-        loss = torch.nn.BCELoss
-        metric = metrics.map_charades
+        loss_fn = torch.nn.BCELoss()
+        metric_fn = metrics.map_charades
+        metric_fn_name = 'map'
     else:
-        loss = torch.nn.NLLLoss
-        metric = metrics.accuracy
+        loss_fn = torch.nn.NLLLoss()
+        metric_fn = metrics.accuracy
+        metric_fn_name = 'acc'
 
-    return model, optimizer, loss, metric
+    return model, optimizer, loss_fn, metric_fn, metric_fn_name
 
 class Model(Module):
     """

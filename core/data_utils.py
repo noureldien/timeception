@@ -261,6 +261,9 @@ class DatasetCharades(torch.utils.data.Dataset):
         if config.cfg.MODEL.CLASSIFICATION_TYPE == 'sl':
             y = utils.debinarize_label(y)
 
+        # in any case, make sure target is float
+        y = y.astype(np.float32)
+
         # convert relative to root pathes
         feats_path = np.array(['%s/%s/%s.pkl' % (root_path, feature_name, p) for p in video_names])
 
@@ -279,19 +282,11 @@ class DatasetCharades(torch.utils.data.Dataset):
         Generate one batch of data
         """
 
-        idx_start = index * self.batch_size
-        idx_stop = (index + 1) * self.batch_size
-        y = self.y[idx_start:idx_stop]
-        feats_path = self.feats_path[idx_start:idx_stop]
+        y = self.y[index]
+        p = self.feats_path[index]
+        x = utils.pkl_load(p)
 
-        n_items = len(feats_path)
-        x_shape = tuple([n_items] + list(self.feature_dim))
-        x = np.zeros(x_shape, dtype=np.float32)
-
-        # loop of feature pathes and load them
-        for idx, p in enumerate(feats_path):
-            # x[idx] = utils.pkl_load(p)
-            pass
+        # x = np.zeros(self.feature_dim, dtype=np.float32)
 
         return x, y
 
@@ -309,7 +304,6 @@ class DatasetCharades(torch.utils.data.Dataset):
 # region Constants
 
 KERAS_DATA_GENERATORS_DICT = {'charades': DataGeneratorCharades}
-
 PYTORCH_DATASETS_DICT = {'charades': DatasetCharades}
 
 # endregion
