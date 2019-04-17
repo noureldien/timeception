@@ -36,14 +36,14 @@ from __future__ import unicode_literals
 import logging
 import os
 import datetime
+import numpy as np
 from optparse import OptionParser
 
 import tensorflow as tf
 import keras.backend as K
-from keras.layers import Dense, LeakyReLU, Dropout, Input, Activation
+from keras.layers import Dense, LeakyReLU, Dropout, Input, Activation, BatchNormalization
 from keras.optimizers import SGD, Adam
-from keras.models import Sequential, Model
-from keras.layers.normalization import BatchNormalization
+from keras.models import Model
 
 from nets import timeception
 from nets.layers_keras import MaxLayer
@@ -77,7 +77,7 @@ def train_tco():
     save_callback = keras_utils.SaveCallback(dataset_name, model_name)
 
     # load model
-    model = __define_model_timeception()
+    model = __define_timeception_model()
     logger.info(model.summary())
 
     # train the model
@@ -92,7 +92,7 @@ def train_ete():
     This train scheme is End-to-end (ETE).
     """
 
-    model = __define_model_timeception()
+    model = __define_timeception_model()
 
     raise Exception('Sorry, not implemented yet!')
 
@@ -126,7 +126,7 @@ def __define_data_generator(is_training):
 
     return data_generator
 
-def __define_model_timeception():
+def __define_timeception_model():
     """
     Define Timeception classifier.
     """

@@ -34,43 +34,30 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import logging
-import warnings
-import random
 import os
-import sys
-import shutil
-import time
 import datetime
-import csv
-import itertools
-import math
-import threading
-import gc
-import argparse
-import natsort
-import cv2
-import glob
 import numpy as np
 from optparse import OptionParser
-from sklearn.preprocessing import label_binarize
 
-import tensorflow as tf
-import keras.backend as K
-import keras.layers
-from keras import optimizers
-from keras.layers import Dense, LeakyReLU, Dropout, Lambda, Conv2D, Activation, Conv3D, MaxPooling3D
-from keras.layers import Input, merge, concatenate, GRU, Concatenate, DepthwiseConv2D, Multiply
-from keras.optimizers import RMSprop, SGD, Adadelta, Adam, Adagrad, Adamax, Nadam
-from keras.models import Sequential, Model, load_model
-from keras.layers.normalization import BatchNormalization
-from keras.regularizers import l2
-from keras.utils import multi_gpu_utils
-from keras.callbacks import LambdaCallback, Callback
+import torch
+import torch.utils.data
 
-from nets import timeception
-from nets.layers_keras import DepthwiseConvOverTimeLayer, ReshapeLayer, TransposeLayer
-from nets.layers_keras import GroupedDenseLayer, MaxLayer, AverageLayer, SumLayer
-from nets.layers_keras import DepthwiseConv1DLayer, DepthwiseConv1DLayer, DepthwiseConv3DLayer, DepthwiseConv2DLayer
+from torch.nn import functional as F
+from torch.nn import Module, Conv2d, Conv1d, Dropout, BatchNorm1d
+from torch.autograd import Variable
+from torchvision import datasets, transforms
+
+import torchviz
+import torchvision
+import torchsummary
+
+# import tensorflow as tf
+# import keras.backend as K
+# from keras.layers import Dense, LeakyReLU, Dropout, Input, Activation, BatchNormalization
+# from keras.optimizers import SGD, Adam
+# from keras.models import Model
+
+from nets import timeception_pytorch
 from core import utils, keras_utils, image_utils, config_utils, const, config, data_utils
 from core.utils import Path as Pth
 
@@ -150,7 +137,7 @@ def __define_data_generator(is_training):
 
     return data_generator
 
-def __define_model_timeception():
+def __define_timeception_module():
     """
     Define Timeception classifier.
     """
@@ -184,8 +171,25 @@ def __define_model_timeception():
     n_groups = int(n_channels_in / 128.0)
 
     # input layer
-    input_shape = (n_tc_timesteps, channel_h, channel_w, n_channels_in)  # (T, H, W, C)
-    tensor_input = Input(shape=input_shape, name='input')  # (T, H, W, C)
+    input_shape = (n_channels_in, n_tc_timesteps, channel_h, channel_w)  # (C, T, H, W)
+
+    ########################
+
+    # define input tensor
+    input = T.tensor(np.zeros((32, 1024, 128, 7, 7)), dtype=T.float32)
+
+    # define 4 layers of timeception
+    timeception_module = timeception_pytorch.Timeception(input.size(), n_layers=4)
+
+    # feedforward the input to the timeception layers
+    tensor = timeception_module(input)
+
+    # the output is (32, 2480, 8, 7, 7)
+    print(tensor.size())
+
+    ########################
+
+    # tensor_input = Input(shape=input_shape, name='input')  # (C, T, H, W)
 
     # define timeception layers, as a standalone module
     timeception_module = timeception.Timeception(n_channels_in, n_tc_layers, n_groups, is_dilated=is_dilated)

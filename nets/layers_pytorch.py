@@ -31,17 +31,10 @@ from __future__ import unicode_literals
 
 import numpy as np
 import logging
+
 import torch
-import torch.utils.data
-
 from torch.nn import Module, Conv2d, Conv1d
-from torchvision import datasets, transforms
-from torch.autograd import Variable
 from torch.nn import functional as F
-
-import torchviz
-import torchvision
-import torchsummary
 
 from core import pytorch_utils
 
@@ -98,6 +91,7 @@ class DepthwiseConv1DLayer(Module):
 
         n_samples, n_channels, n_timesteps, _, _ = input_shape
 
+        # TODO: support using different dilation rates.
         padding = pytorch_utils.calc_padding_1d(n_timesteps, kernel_size)
         self.depthwise_conv1d = Conv1d(n_channels, n_channels, kernel_size, dilation=dilation, groups=n_channels, padding=padding)
 
