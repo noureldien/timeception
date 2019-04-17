@@ -42,14 +42,14 @@ from torch.nn import functional as F
 
 from nets.layers_pytorch import ChannelShuffleLayer, DepthwiseConv1DLayer
 
-# region Timeception as Model
+# region Timeception as Module
 
 class Timeception(Module):
     """
     Timeception is defined as a keras model.
     """
 
-    def __init__(self, input_shape, n_layers=4, n_groups=8):
+    def __init__(self, input_shape, n_layers=4, n_groups=8, is_dilated=True):
 
         super(Timeception, self).__init__()
 
@@ -62,11 +62,16 @@ class Timeception(Module):
         self.n_layers = n_layers
         self.is_dilated = is_dilated
         self.n_groups = n_groups
+        self.n_channels_out = None
 
         # convert it as a list
         input_shape = list(input_shape)
 
-        self.__define_timeception_layers(input_shape, n_layers, n_groups, expansion_factor, is_dilated)
+        # define timeception layers
+        n_channels_out = self.__define_timeception_layers(input_shape, n_layers, n_groups, expansion_factor, is_dilated)
+
+        # set the output channels
+        self.n_channels_out = n_channels_out
 
     def forward(self, input):
 
@@ -98,15 +103,17 @@ class Timeception(Module):
             # downsample over time
             layer_name = 'maxpool_tc%d' % (layer_num)
             layer = MaxPool3d(kernel_size=(2, 1, 1))
+            layer._name = layer_name
             setattr(self, layer_name, layer)
 
             n_channels_in = n_channels_out
             input_shape[1] = n_channels_in
 
+        return n_channels_in
+
     def __define_grouped_convolutions(self, input_shape, n_groups, n_channels_per_branch, is_dilated, layer_num):
         """
         Define layers inside grouped convolutional block.
-        :return:
         """
 
         n_channels_in = input_shape[1]
@@ -138,11 +145,13 @@ class Timeception(Module):
         # activation
         layer_name = 'relu_tc%d' % (layer_num)
         layer = ReLU()
+        layer._name = layer_name
         setattr(self, layer_name, layer)
 
         # shuffle channels
         layer_name = 'shuffle_tc%d' % (layer_num)
         layer = ChannelShuffleLayer(n_channels_out, n_groups)
+        layer._name = layer_name
         setattr(self, layer_name, layer)
 
     def __define_temporal_convolutional_block(self, input_shape, n_channels_per_branch_out, kernel_sizes, dilation_rates, layer_num, group_num):
@@ -158,56 +167,68 @@ class Timeception(Module):
         # branch 1: dimension reduction only and no temporal conv
         layer_name = 'conv_b1_g%d_tc%d' % (group_num, layer_num)
         layer = Conv3d(n_channels_in, n_channels_per_branch_out, kernel_size=(1, 1, 1))
+        layer._name = layer_name
         setattr(self, layer_name, layer)
         layer_name = 'bn_b1_g%d_tc%d' % (group_num, layer_num)
         layer = BatchNorm3d(n_channels_per_branch_out)
+        layer._name = layer_name
         setattr(self, layer_name, layer)
 
         # branch 2: dimension reduction followed by depth-wise temp conv (kernel-size 3)
         layer_name = 'conv_b2_g%d_tc%d' % (group_num, layer_num)
         layer = Conv3d(n_channels_in, n_channels_per_branch_out, kernel_size=(1, 1, 1))
+        layer._name = layer_name
         setattr(self, layer_name, layer)
         layer_name = 'convdw_b2_g%d_tc%d' % (group_num, layer_num)
-        layer = DepthwiseConv1DLayer(dw_input_shape, kernel_sizes[0], dilation_rates[0])
+        layer = DepthwiseConv1DLayer(dw_input_shape, kernel_sizes[0], dilation_rates[0], layer_name)
         setattr(self, layer_name, layer)
         layer_name = 'bn_b2_g%d_tc%d' % (group_num, layer_num)
         layer = BatchNorm3d(n_channels_per_branch_out)
+        layer._name = layer_name
         setattr(self, layer_name, layer)
 
         # branch 3: dimension reduction followed by depth-wise temp conv (kernel-size 5)
         layer_name = 'conv_b3_g%d_tc%d' % (group_num, layer_num)
         layer = Conv3d(n_channels_in, n_channels_per_branch_out, kernel_size=(1, 1, 1))
+        layer._name = layer_name
         setattr(self, layer_name, layer)
         layer_name = 'convdw_b3_g%d_tc%d' % (group_num, layer_num)
-        layer = DepthwiseConv1DLayer(dw_input_shape, kernel_sizes[1], dilation_rates[1])
+        layer = DepthwiseConv1DLayer(dw_input_shape, kernel_sizes[1], dilation_rates[1], layer_name)
         setattr(self, layer_name, layer)
         layer_name = 'bn_b3_g%d_tc%d' % (group_num, layer_num)
         layer = BatchNorm3d(n_channels_per_branch_out)
+        layer._name = layer_name
         setattr(self, layer_name, layer)
 
         # branch 4: dimension reduction followed by depth-wise temp conv (kernel-size 7)
         layer_name = 'conv_b4_g%d_tc%d' % (group_num, layer_num)
         layer = Conv3d(n_channels_in, n_channels_per_branch_out, kernel_size=(1, 1, 1))
+        layer._name = layer_name
         setattr(self, layer_name, layer)
         layer_name = 'convdw_b4_g%d_tc%d' % (group_num, layer_num)
-        layer = DepthwiseConv1DLayer(dw_input_shape, kernel_sizes[2], dilation_rates[2])
+        layer = DepthwiseConv1DLayer(dw_input_shape, kernel_sizes[2], dilation_rates[2], layer_name)
         setattr(self, layer_name, layer)
         layer_name = 'bn_b4_g%d_tc%d' % (group_num, layer_num)
         layer = BatchNorm3d(n_channels_per_branch_out)
+        layer._name = layer_name
         setattr(self, layer_name, layer)
 
         # branch 5: dimension reduction followed by temporal max pooling
         layer_name = 'conv_b5_g%d_tc%d' % (group_num, layer_num)
         layer = Conv3d(n_channels_in, n_channels_per_branch_out, kernel_size=(1, 1, 1))
+        layer._name = layer_name
         setattr(self, layer_name, layer)
         layer_name = 'maxpool_b5_g%d_tc%d' % (group_num, layer_num)
         layer = MaxPool3d(kernel_size=(2, 1, 1), stride=(1, 1, 1))
+        layer._name = layer_name
         setattr(self, layer_name, layer)
         layer_name = 'padding_b5_g%d_tc%d' % (group_num, layer_num)
-        layer = torch.nn.ReplicationPad3d((0, 0, 0, 0, 1, 0)) # left, right, top, bottom, front, back
+        layer = torch.nn.ReplicationPad3d((0, 0, 0, 0, 1, 0))  # left, right, top, bottom, front, back
+        layer._name = layer_name
         setattr(self, layer_name, layer)
         layer_name = 'bn_b5_g%d_tc%d' % (group_num, layer_num)
         layer = BatchNorm3d(n_channels_per_branch_out)
+        layer._name = layer_name
         setattr(self, layer_name, layer)
 
     def __call_timeception_layers(self, tensor, n_layers, n_groups, expansion_factor):

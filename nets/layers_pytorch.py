@@ -83,17 +83,22 @@ class DepthwiseConv1DLayer(Module):
     Shuffle the channels across groups.
     """
 
-    def __init__(self, input_shape, kernel_size, dilation):
+    def __init__(self, input_shape, kernel_size, dilation, name):
         super(DepthwiseConv1DLayer, self).__init__()
+
+        assert len(input_shape) == 5
 
         self.kernel_size = kernel_size
         self.dilation = dilation
+        self._name = name
 
-        n_samples, n_channels, n_timesteps, _, _ = input_shape
+        n_channels = input_shape[1]
+        n_timesteps = input_shape[2]
 
         # TODO: support using different dilation rates.
         padding = pytorch_utils.calc_padding_1d(n_timesteps, kernel_size)
         self.depthwise_conv1d = Conv1d(n_channels, n_channels, kernel_size, dilation=dilation, groups=n_channels, padding=padding)
+        self.depthwise_conv1d._name = name
 
     def forward(self, input):
         """

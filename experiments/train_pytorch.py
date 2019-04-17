@@ -43,7 +43,7 @@ import torch
 import torch.utils.data
 
 from torch.nn import functional as F
-from torch.nn import Module, Conv2d, Conv1d, Dropout, BatchNorm1d
+from torch.nn import Module, Dropout, BatchNorm1d, LeakyReLU, Linear, LogSoftmax
 from torch.autograd import Variable
 from torchvision import datasets, transforms
 
@@ -58,7 +58,7 @@ import torchsummary
 # from keras.models import Model
 
 from nets import timeception_pytorch
-from core import utils, keras_utils, image_utils, config_utils, const, config, data_utils
+from core import utils, pytorch_utils, image_utils, config_utils, const, config, data_utils
 from core.utils import Path as Pth
 
 logger = logging.getLogger(__name__)
@@ -85,11 +85,13 @@ def train_tco():
     logger.info('... [te]: n_samples, n_batch, batch_size: %d, %d, %d' % (data_generator_te.n_samples, data_generator_te.n_batches, config.cfg.TEST.BATCH_SIZE))
 
     # callback to save the model
-    save_callback = keras_utils.SaveCallback(dataset_name, model_name)
+    # save_callback = keras_utils.SaveCallback(dataset_name, model_name)
 
     # load model
-    model = __define_model_timeception()
-    logger.info(model.summary())
+    model = Model()
+    logger.info(pytorch_utils.summary(model, model._input_shape[1:], batch_size=-1, device='cpu'))
+
+    return
 
     # train the model
     model.fit_generator(epochs=n_epochs, generator=data_generator_tr, validation_data=data_generator_te, use_multiprocessing=True, workers=n_workers, callbacks=[save_callback], verbose=2)
@@ -102,8 +104,6 @@ def train_ete():
     Train Timeception layers based on the given configurations.
     This train scheme is End-to-end (ETE).
     """
-
-    model = __define_model_timeception()
 
     raise Exception('Sorry, not implemented yet!')
 
@@ -137,84 +137,62 @@ def __define_data_generator(is_training):
 
     return data_generator
 
-def __define_timeception_module():
+class Model(Module):
     """
     Define Timeception classifier.
     """
 
-    # optimizer and loss for either multi-label "ml" or single-label "sl" classification
-    if config.cfg.MODEL.CLASSIFICATION_TYPE == 'ml':
-        loss = keras_utils.LOSSES[3]
-        output_activation = keras_utils.ACTIVATIONS[2]
-        metric_function = keras_utils.map_charades
-    else:
-        loss = keras_utils.LOSSES[0]
-        output_activation = keras_utils.ACTIVATIONS[3]
-        metric_function = keras_utils.METRICS[0]
+    def __init__(self):
+        super(Model, self).__init__()
 
-    # define the optimizer
-    lr = config.cfg.SOLVER.LR
-    if config.cfg.SOLVER.NAME == 'sgd':
-        optimizer = SGD(lr=0.01)
-    else:
-        epsilon = config.cfg.SOLVER.ADAM_EPSILON
-        optimizer = Adam(lr=lr, epsilon=epsilon)
+        # some configurations for the model
+        n_tc_timesteps = config.cfg.MODEL.N_TC_TIMESTEPS
+        backbone_name = config.cfg.MODEL.BACKBONE_CNN
+        feature_name = config.cfg.MODEL.BACKBONE_FEATURE
+        n_tc_layers = config.cfg.MODEL.N_TC_LAYERS
+        n_classes = config.cfg.MODEL.N_CLASSES
+        is_dilated = config.cfg.MODEL.MULTISCALE_TYPE
+        n_channels_in, channel_h, channel_w = utils.get_model_feat_maps_info(backbone_name, feature_name)
+        n_groups = int(n_channels_in / 128.0)
 
-    # some configurations for the model
-    n_tc_timesteps = config.cfg.MODEL.N_TC_TIMESTEPS
-    backbone_name = config.cfg.MODEL.BACKBONE_CNN
-    feature_name = config.cfg.MODEL.BACKBONE_FEATURE
-    n_tc_layers = config.cfg.MODEL.N_TC_LAYERS
-    n_classes = config.cfg.MODEL.N_CLASSES
-    is_dilated = config.cfg.MODEL.MULTISCALE_TYPE
-    n_channels_in, channel_h, channel_w = utils.get_model_feat_maps_info(backbone_name, feature_name)
-    n_groups = int(n_channels_in / 128.0)
+        input_shape = (None, n_channels_in, n_tc_timesteps, channel_h, channel_w)  # (C, T, H, W)
+        self._input_shape = input_shape
 
-    # input layer
-    input_shape = (n_channels_in, n_tc_timesteps, channel_h, channel_w)  # (C, T, H, W)
+        # define 4 layers of timeception
+        self.timeception = timeception_pytorch.Timeception(input_shape, n_tc_layers, n_groups, is_dilated)  # (C, T, H, W)
 
-    ########################
+        # get number of output channels after timeception
+        n_channels_in = self.timeception.n_channels_out
 
-    # define input tensor
-    input = T.tensor(np.zeros((32, 1024, 128, 7, 7)), dtype=T.float32)
+        # define layers for classifier
+        self.do1 = Dropout(0.5)
+        self.l1 = Linear(n_channels_in, 512)
+        self.bn1 = BatchNorm1d(512)
+        self.ac1 = LeakyReLU(0.2)
+        self.do2 = Dropout(0.25)
+        self.l2 = Linear(512, n_classes)
+        self.ac2 = LogSoftmax()
 
-    # define 4 layers of timeception
-    timeception_module = timeception_pytorch.Timeception(input.size(), n_layers=4)
+    def forward(self, input):
+        # feedforward the input to the timeception layers
+        tensor = self.timeception(input)
 
-    # feedforward the input to the timeception layers
-    tensor = timeception_module(input)
+        # max-pool over space-time
+        bn, c, t, h, w = tensor.size()
+        tensor = tensor.view(bn, c, t * h * w)
+        tensor = torch.max(tensor, dim=2, keepdim=False)
+        tensor = tensor[0]
 
-    # the output is (32, 2480, 8, 7, 7)
-    print(tensor.size())
+        # dense layers for classification
+        tensor = self.do1(tensor)
+        tensor = self.l1(tensor)
+        tensor = self.bn1(tensor)
+        tensor = self.ac1(tensor)
+        tensor = self.do2(tensor)
+        tensor = self.l2(tensor)
+        tensor = self.ac2(tensor)
 
-    ########################
-
-    # tensor_input = Input(shape=input_shape, name='input')  # (C, T, H, W)
-
-    # define timeception layers, as a standalone module
-    timeception_module = timeception.Timeception(n_channels_in, n_tc_layers, n_groups, is_dilated=is_dilated)
-    tensor = timeception_module(tensor_input)  # (T, H, W, C)
-
-    # but if you fancy, you can define timeception layers as a series of layers
-    # tensor = timeception.timeception_layers(tensor_input, n_tc_layers, n_groups, is_dilated=is_dilated) # (T, H, W, C)
-
-    # max-pool over space-time
-    tensor = MaxLayer(axis=(1, 2, 3), name='maxpool_t_s')(tensor)
-
-    # dense layers for classification
-    tensor = Dropout(0.5)(tensor)
-    tensor = Dense(512)(tensor)
-    tensor = BatchNormalization()(tensor)
-    tensor = LeakyReLU(alpha=0.2)(tensor)
-    tensor = Dropout(0.25)(tensor)
-    tensor = Dense(n_classes)(tensor)
-    tensor_output = Activation(output_activation)(tensor)
-
-    # define the model
-    model = Model(inputs=tensor_input, outputs=tensor_output)
-    model.compile(loss=loss, optimizer=optimizer, metrics=[metric_function])
-
-    return model
+        return tensor
 
 def __main():
     """
