@@ -422,7 +422,7 @@ class Timeception(Model):
         config = {'n_channels_in': self.n_channels_in, 'n_layers': self.n_layers, 'n_groups': self.n_groups, 'is_dilated': self.is_dilated}
 
         # TODO: Implement get_config
-        # what is really need here is that get_config should not only get configuration of Timeception as a module, but get all the
+        # what is really needed here is that get_config should not only get configuration of Timeception as a module, but get all the
         # configuration of the layers inside the Timeception module. This is essential in serializing the Timeception module.
         # Currently, we can only save weights. To use them later, one should define the networking calling the python code, then
         # use model.load_weights()

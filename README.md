@@ -121,16 +121,16 @@ In order to change which baseline is uses for testing, set the `-- config-file` 
 ###### 2D-ResNet-152
 Timeception on top of 2D-ResNet-152 as backnone.
 
-|  Config File | Backbone | TC Layers | Timesteps  | mAP (%)  | Model |
+|  Config File | Backbone | TC Layers | Frames  | mAP (%)  | Model |
 |---|:---:|:---:|:---:|:---:|:---:|
-| [charades_r2d_tc3_f32.yaml](./configs/charades_r2d_tc3_f32.yaml)     | R2D   | 3 | 256  | 30.37  | [Link](./data/charades/charades_r2d_tc3_f32.pkl)   |
-| [charades_r2d_tc3_f64.yaml](./configs/charades_r2d_tc3_f64.yaml)     | R2D   | 3 | 512  | 31.25  | [Link](./data/charades/charades_r2d_tc3_f64.pkl)   |
-| [charades_r2d_tc4_f128.yaml](./configs/charades_r2d_tc4_f128.yaml)   | R2D   | 4 | 1024 | 31.82  | [Link](./data/charades/charades_r2d_tc4_f128.pkl)  |
+| [charades_r2d_tc3_f32.yaml](./configs/charades_r2d_tc3_f32.yaml)     | R2D   | 3 | 32  | 30.37  | [Link](./data/charades/charades_r2d_tc3_f32.pkl)   |
+| [charades_r2d_tc3_f64.yaml](./configs/charades_r2d_tc3_f64.yaml)     | R2D   | 3 | 64  | 31.25  | [Link](./data/charades/charades_r2d_tc3_f64.pkl)   |
+| [charades_r2d_tc4_f128.yaml](./configs/charades_r2d_tc4_f128.yaml)   | R2D   | 4 | 128 | 31.82  | [Link](./data/charades/charades_r2d_tc4_f128.pkl)  |
 
 ###### I3D
 Timeception on top of ResNet-152 as backnone.
 
-|  Config File | Backbone | TC Layers | Timesteps  | mAP (%)  | Model |
+|  Config File | Backbone | TC Layers | Frames  | mAP (%)  | Model |
 |---|:---:|:---:|:---:|:---:|:---:|
 | [charades_i3d_tc3_f256.yaml](./configs/charades_i3d_tc3_f256.yaml)    | I3D  | 3 | 256  | 33.89  | [Link](./data/charades/charades_i3d_tc3_f256.pkl)   |
 | [charades_i3d_tc3_f512.yaml](./configs/charades_i3d_tc3_f512.yaml)    | I3D  | 3 | 512  | 35.46  | [Link](./data/charades/charades_i3d_tc3_f512.pkl)   |
@@ -140,7 +140,7 @@ Timeception on top of ResNet-152 as backnone.
 Timeception on top of 3D-ResNet-100 as backnone.
 
 
-|  Config File | Backbone | TC Layers | Timesteps  | mAP (%)  | Model |
+|  Config File | Backbone | TC Layers | Frames  | mAP (%)  | Model |
 |---|:---:|:---:|:---:|:---:|:---:|
 | [charades_r3d_tc4_f1024.yaml](./configs/charades_r3d_tc4_f1024.yaml)  | R3D  | 4 | 1024 |  41.1  | [Link](./data/charades/charades_r3d_tc4_f1024.pkl)  |
 
