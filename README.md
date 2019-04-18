@@ -146,7 +146,7 @@ Timeception on top of 3D-ResNet-100 as backnone.
 
 
 #### Kinetics 400
-We will add all pretrained models for Charades by the end of May.
+We will add all pretrained models for Kinetics 400 by the end of June.
 
 ### License
 The code and the models in this repo are released under the GNU 3.0 [LICENSE](LICENSE).
