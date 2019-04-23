@@ -233,9 +233,7 @@ class Timeception(Module):
 
     def __call_timeception_layers(self, tensor, n_layers, n_groups, expansion_factor):
         input_shape = tensor.size()
-        assert len(input_shape) == 5
-
-        _, n_timesteps, side_dim, side_dim, n_channels_in = input_shape
+        n_channels_in = input_shape[1]
 
         # how many layers of timeception
         for i in range(n_layers):

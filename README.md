@@ -1,11 +1,14 @@
 ## Timeception for Complex Action Recognition
+
 This code repository is the implementation for the paper [Timeception for Complex Action Recognition](https://arxiv.org/abs/1812.01289).
 We provide the implementation for 3 different libraries: `keras`, `tensorflow` and `pytorch`.
 
 ![Timeception for Complex Action Recognition](./data/assets/timeception_layer.jpg "Timeception Block")
 
 ### Citation
+
 Please consider citing this work using this BibTeX entry
+
 ```bibtex
 @inproceedings{hussein2018timeception,
   title     = {Timeception for Complex Action Recognition},
@@ -100,6 +103,7 @@ print (tensor.size())
 ```
 
 ### Installation
+
 We use python 2.7.15, provided by Anaconda 4.6.2, and we depend on the following python packages.
 - Keras 2.2.4
 - Tensorflow 1.10.1
@@ -114,11 +118,13 @@ We use python 2.7.15, provided by Anaconda 4.6.2, and we depend on the following
 ### Pretrained Models
 
 #### Charades
+
 We will add all pretrained models for Charades by the end of April.
 For testing, start with the script `./scripts/test_charades_timeception.sh`.
 In order to change which baseline is uses for testing, set the `-- config-file` using on of the following options.
 
 ###### 2D-ResNet-152
+
 Timeception on top of 2D-ResNet-152 as backnone.
 
 |  Config File | Backbone | TC Layers | Frames  | mAP (%)  | Model |
@@ -128,6 +134,7 @@ Timeception on top of 2D-ResNet-152 as backnone.
 | [charades_r2d_tc4_f128.yaml](./configs/charades_r2d_tc4_f128.yaml)   | R2D   | 4 | 128 | 31.82  | [Link](./data/charades/charades_r2d_tc4_f128.pkl)  |
 
 ###### I3D
+
 Timeception on top of ResNet-152 as backnone.
 
 |  Config File | Backbone | TC Layers | Frames  | mAP (%)  | Model |
@@ -146,9 +153,11 @@ Timeception on top of 3D-ResNet-100 as backnone.
 
 
 #### Kinetics 400
+
 We will add all pretrained models for Kinetics 400 by the end of June.
 
 ### License
+
 The code and the models in this repo are released under the GNU 3.0 [LICENSE](LICENSE).
 
 
