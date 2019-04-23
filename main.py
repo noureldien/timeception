@@ -27,10 +27,6 @@ Main file of the project.
 def __main():
     from experiments import train_keras, test_keras, train_pytorch, test_pytorch
 
-    import numpy as np
-    import torch as T
-    from nets import timeception_pytorch
-
     # to train Timeception using keras
     train_keras.__main()
 
