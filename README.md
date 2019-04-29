@@ -1,5 +1,7 @@
 ## Timeception for Complex Action Recognition
 
+![Keras](./data/assets/badge-keras.png "Keras") ![Keras](./data/assets/badge-tensorflow.png "TensorFlow") ![Keras](./data/assets/badge-pytorch.png "PyTorch")
+
 This code repository is the implementation for the paper [Timeception for Complex Action Recognition](https://arxiv.org/abs/1812.01289).
 We provide the implementation for 3 different libraries: `keras`, `tensorflow` and `pytorch`.
 
