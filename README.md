@@ -15,8 +15,8 @@ Please consider citing this work using this BibTeX entry
 @inproceedings{hussein2018timeception,
   title     = {Timeception for Complex Action Recognition},
   author    = {Hussein, Noureldien and Gavves, Efstratios and Smeulders, Arnold WM},
-  booktitle = {arxiv},
-  year      = {2018}
+  booktitle = {CVPR},
+  year      = {2019}
 }
 ```
 
